@@ -1,0 +1,137 @@
+"use client";
+
+import { useLoyalty, useCustomer } from "@/hooks/use-data";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
+import { Skeleton } from "@/components/ui/skeleton";
+import { TIER_INFO } from "@/lib/types";
+import { Crown, Flame, TrendingUp, Gift, Sparkles, Check } from "lucide-react";
+import { cop } from "@/lib/format";
+import { toast } from "sonner";
+import { cn } from "@/lib/utils";
+
+const tierColors: Record<string, string> = {
+  Bronce: "var(--cafe)", Plata: "var(--muted-foreground)", Oro: "var(--mango)", Platino: "var(--mora)",
+};
+
+export function Rewards() {
+  const { data, isLoading } = useLoyalty();
+  if (isLoading || !data) return <div className="px-3 pt-4 space-y-3 sm:px-5 lg:px-0">{[0,1,2].map(i=><Skeleton key={i} className="h-28 rounded-2xl" />)}</div>;
+
+  const l = data;
+  const tiers = Object.entries(TIER_INFO);
+  const curIdx = tiers.findIndex(([t]) => t === l.tier);
+  const next = tiers[curIdx + 1];
+  const progress = next ? Math.min(100, (l.coins / next[1].min) * 100) : 100;
+
+  const rewards = [
+    { id: 1, title: "$5.000 de descuento", cost: 250, icon: "💸" },
+    { id: 2, title: "Envío gratis x3", cost: 400, icon: "🏍️" },
+    { id: 3, title: "Postre gratis", cost: 600, icon: "🍰" },
+    { id: 4, title: "Combo hamburguesa", cost: 1200, icon: "🍔" },
+    { id: 5, title: "Antojo Prime 1 mes", cost: 2000, icon: "👑" },
+  ];
+
+  return (
+    <div className="px-3 pt-4 space-y-5 sm:px-5 lg:px-0">
+      <h1 className="font-display text-2xl font-extrabold tracking-tight">Recompensas</h1>
+
+      {/* Coins + tier card */}
+      <Card className="overflow-hidden p-0 shadow-soft">
+        <div className="p-5 text-white" style={{ background: `linear-gradient(135deg, ${tierColors[l.tier]}, oklch(0.3 0.02 50))` }}>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm opacity-80">Tus Antojo Coins</p>
+              <p className="font-display text-4xl font-black">{l.coins.toLocaleString("es-CO")}</p>
+            </div>
+            <div className="text-right">
+              <span className="inline-flex items-center gap-1 rounded-full bg-white/20 px-3 py-1 text-sm font-bold"><Crown size={14} /> {l.tier}</span>
+              <p className="mt-1 flex items-center gap-1 text-xs"><Flame size={12} /> Racha de {l.streakDays} días 🔥</p>
+            </div>
+          </div>
+        </div>
+        <div className="p-4">
+          {next ? (
+            <>
+              <div className="mb-1 flex justify-between text-sm">
+                <span className="font-semibold">Progreso a {next[0]}</span>
+                <span className="text-muted-foreground">{l.coins}/{next[1].min}</span>
+              </div>
+              <Progress value={progress} className="h-2.5" />
+              <p className="mt-2 text-xs text-muted-foreground">Te faltan <b>{next[1].min - l.coins}</b> coins para subir a {next[0]}. Beneficio: {next[1].perk}</p>
+            </>
+          ) : (
+            <p className="text-sm font-semibold" style={{ color: "var(--mora)" }}>👑 ¡Estás en el tier máximo! Disfrutas de {TIER_INFO[l.tier].perk}</p>
+          )}
+        </div>
+      </Card>
+
+      {/* Tier ladder */}
+      <section>
+        <h2 className="mb-2 font-display font-bold">Niveles</h2>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {tiers.map(([name, info], i) => {
+            const reached = i <= curIdx;
+            return (
+              <Card key={name} className={cn("p-3 text-center shadow-soft", reached && "ring-2")} style={reached ? { borderColor: tierColors[name] } : undefined}>
+                <div className="mx-auto grid h-10 w-10 place-items-center rounded-full text-white" style={{ background: tierColors[name] }}><Crown size={16} /></div>
+                <p className="mt-1.5 font-display font-bold text-sm">{name}</p>
+                <p className="text-[10px] text-muted-foreground">{info.min}+ coins</p>
+                {reached && <Check size={14} className="mx-auto mt-1" style={{ color: tierColors[name] }} />}
+              </Card>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* Challenges */}
+      <section>
+        <h2 className="mb-2 flex items-center gap-1.5 font-display font-bold"><Sparkles size={16} style={{ color: "var(--lima)" }} /> Retos de la semana</h2>
+        <div className="space-y-2">
+          {l.challenges.map((c: any) => (
+            <Card key={c.id} className="flex items-center gap-3 p-3 shadow-soft">
+              <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-secondary text-xl">{c.icon}</div>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold">{c.title}</p>
+                <p className="text-[11px] text-muted-foreground">{c.description}</p>
+                <div className="mt-1 flex items-center gap-2">
+                  <Progress value={(c.progress / c.goal) * 100} className="h-1.5 flex-1" />
+                  <span className="text-[11px] font-semibold tabular-nums">{c.progress}/{c.goal}</span>
+                </div>
+              </div>
+              <div className="text-right">
+                <p className="text-xs font-bold" style={{ color: "var(--mango)" }}>+{c.reward}</p>
+                <p className="text-[10px] text-muted-foreground">coins</p>
+              </div>
+            </Card>
+          ))}
+        </div>
+      </section>
+
+      {/* Redeem */}
+      <section>
+        <h2 className="mb-2 flex items-center gap-1.5 font-display font-bold"><Gift size={16} style={{ color: "var(--antojo)" }} /> Canjear recompensas</h2>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          {rewards.map((r) => {
+            const can = l.coins >= r.cost;
+            return (
+              <Card key={r.id} className="flex items-center gap-3 p-3 shadow-soft">
+                <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-secondary text-2xl">{r.icon}</div>
+                <div className="flex-1">
+                  <p className="text-sm font-semibold">{r.title}</p>
+                  <p className="text-xs font-bold" style={{ color: "var(--mango)" }}>{r.cost} coins</p>
+                </div>
+                <Button size="sm" variant={can ? "default" : "outline"} className="rounded-full" disabled={!can}
+                  style={can ? { background: "var(--antojo)", color: "white" } : undefined}
+                  onClick={() => toast.success(`¡${r.title} canjeado! 🎉`)}>
+                  {can ? "Canjear" : "Faltan coins"}
+                </Button>
+              </Card>
+            );
+          })}
+        </div>
+      </section>
+    </div>
+  );
+}
