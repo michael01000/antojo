@@ -44,6 +44,9 @@ model Customer {
   subscription Subscription?
   addresses   Address[]
   favorites   Favorite[]
+  follows     Follow[]
+  postLikes   PostLike[]
+  storyViews  StoryView[]
   groupOrders GroupOrder[] @relation("GroupOrderHost")
 }
 
@@ -87,6 +90,17 @@ model Restaurant {
   orders       Order[]
   reviews      Review[]
   favorites    Favorite[]
+  follows      Follow[]
+  posts        Post[]
+  stories      Story[]
+  // Antojo Ads + monetización
+  adsPlan       String   @default("free") // free | pro | premium
+  adsRenewsAt   DateTime?
+  sponsoredPostsUsed   Int      @default(0)
+  sponsoredPostsResetAt DateTime?
+  // Promo PYMES (2 meses sin comisión)
+  pymePromoUntil  DateTime?
+  lastPostAt      DateTime?
 }
 
 model MenuItem {
@@ -138,6 +152,9 @@ model Driver {
   createdAt     DateTime @default(now())
   user          User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
   orders        Order[]
+  // Gamificación
+  bonusEarnedToday Int   @default(0)
+  lastBonusTier    Int   @default(0)
 }
 
 model Order {
@@ -241,10 +258,83 @@ model GroupOrder {
   code            String    @unique
   hostId          String
   restaurantId    String
-  status          String    @default("open")
+  hostName        String    @default("")
+  status          String    @default("open") // open | locked | ordered | expired
   participantsJson String   @default("[]")
   expiresAt       DateTime
+  createdAt       DateTime  @default(now())
   host            Customer  @relation("GroupOrderHost", fields: [hostId], references: [id])
+  items           GroupOrderItem[]
+}
+
+model GroupOrderItem {
+  id              String   @id @default(cuid())
+  groupOrderId    String
+  addedByName     String
+  menuItemId      String?
+  name            String
+  emoji           String?
+  price           Int
+  qty             Int      @default(1)
+  notes           String?
+  createdAt       DateTime @default(now())
+  groupOrder      GroupOrder @relation(fields: [groupOrderId], references: [id], onDelete: Cascade)
+}
+
+model Follow {
+  id           String    @id @default(cuid())
+  customerId   String
+  restaurantId String
+  createdAt    DateTime  @default(now())
+  customer     Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  @@unique([customerId, restaurantId])
+}
+
+model Post {
+  id           String    @id @default(cuid())
+  restaurantId String
+  imageUrl     String
+  caption      String
+  menuItemId   String?
+  isSponsored  Boolean   @default(false)
+  sponsoredUntil DateTime?
+  likes        Int       @default(0)
+  createdAt    DateTime  @default(now())
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  postLikes    PostLike[]
+}
+
+model PostLike {
+  id         String   @id @default(cuid())
+  postId     String
+  customerId String
+  createdAt  DateTime @default(now())
+  post       Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  @@unique([postId, customerId])
+}
+
+model Story {
+  id           String   @id @default(cuid())
+  restaurantId String
+  imageUrl     String
+  caption      String?
+  menuItemId   String?
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  views        StoryView[]
+}
+
+model StoryView {
+  id         String   @id @default(cuid())
+  storyId    String
+  customerId String
+  at         DateTime @default(now())
+  story      Story    @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  @@unique([storyId, customerId])
 }
 
 model Favorite {

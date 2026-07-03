@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useApp } from "@/lib/store";
-import { useCategories, useRestaurants, useRecommendations, usePopular, useCustomer } from "@/hooks/use-data";
+import { useCategories, useRestaurants, useRecommendations, usePopular, useCustomer, useStories, useCreateGroupOrder, useToggleFollow, useFollows } from "@/hooks/use-data";
 import { RestaurantCard, RestaurantCardSkeleton } from "@/components/shared/restaurant-card";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -31,6 +31,9 @@ export function Discover() {
   const { data: recs, isLoading: recsLoading } = useRecommendations();
   const { data: popular } = usePopular();
   const { data: profile } = useCustomer();
+  const { data: storiesData } = useStories();
+  const createGroupOrder = useCreateGroupOrder();
+  const setActiveGroupOrderCode = useApp((s) => s.setActiveGroupOrderCode);
 
   // Compute the time-based greeting only after mount so SSR and the first
   // client paint render the same stable text (avoids hydration mismatch).
@@ -70,11 +73,40 @@ export function Discover() {
 
       {/* ---------- Hero quick actions ---------- */}
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <QuickAction icon={Users} label="Pide en grupo" desc="Junta antojos" color="mora" onClick={() => { setGroupMode(true); toast("¡Pide en grupo activado! Comparte el link con tus amigos"); }} />
+        <QuickAction icon={Users} label="Pide en grupo" desc="Junta antojos" color="mora" onClick={async () => {
+          const firstRest = restaurants[0];
+          if (!firstRest) { toast("No hay restaurantes disponibles"); return; }
+          try {
+            const { groupOrder } = await createGroupOrder.mutateAsync(firstRest.id);
+            setActiveGroupOrderCode(groupOrder.code);
+            toast.success(`¡Pedido grupal creado! Comparte el código ${groupOrder.code}`);
+          } catch (e: any) { toast.error(e.message); }
+        }} />
         <QuickAction icon={Crown} label={prime ? "Prime activo" : "Antojo Prime"} desc="Envío gratis" color="mango" onClick={() => setCustomerView("prime")} />
         <QuickAction icon={Flame} label="Ofertas flash" desc="Termina en 2h" color="antojo" onClick={() => document.getElementById("ofertas")?.scrollIntoView({ behavior: "smooth" })} />
         <QuickAction icon={Sparkles} label="Sazón AI" desc="¿Qué pido?" color="lima" onClick={() => setCustomerView("assistant")} />
       </section>
+
+      {/* ---------- Stories bar ---------- */}
+      {storiesData?.groups?.length > 0 && (
+        <section>
+          <div className="no-scrollbar -mx-3 mb-1 flex gap-3 overflow-x-auto px-3 pb-1 sm:mx-0 sm:px-0">
+            {storiesData.groups.slice(0, 8).map((group: any) => {
+              const hasUnviewed = group.stories.some((s: any) => !s.viewed);
+              return (
+                <button key={group.restaurant.id} onClick={() => setCustomerView("community")} className="flex w-16 shrink-0 flex-col items-center gap-1">
+                  <div className={cn("rounded-full p-0.5", hasUnviewed ? "bg-antojo-gradient" : "bg-secondary")}>
+                    <div className="rounded-full bg-background p-0.5">
+                      <img src={group.restaurant.imageUrl} alt="" className="h-14 w-14 rounded-full object-cover" />
+                    </div>
+                  </div>
+                  <span className="w-full truncate text-center text-[10px] font-semibold">{group.restaurant.name.split(" ")[0]}</span>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       {/* ---------- Categories (functional filter) ---------- */}
       <section>

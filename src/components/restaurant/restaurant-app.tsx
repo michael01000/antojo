@@ -21,6 +21,7 @@ import { cop, copShort, timeAgo } from "@/lib/format";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import type { Order, OrderStatus } from "@/lib/types";
+import { BoostView } from "./boost-view";
 
 export function RestaurantApp() {
   const view = useApp((s) => s.restaurantView);
@@ -53,8 +54,8 @@ export function RestaurantApp() {
 
       {view === "orders" && <RestOrders orders={orders} incoming={incoming} isLoading={isLoading} />}
       {view === "menu" && <RestMenu restId={restaurant?.id} />}
+      {view === "boost" && <BoostView />}
       {view === "analytics" && <RestAnalytics orders={orders} restaurant={restaurant} />}
-      {view === "promos" && <RestPromos restaurant={restaurant} />}
       {view === "profile" && <RestProfile restaurant={restaurant} />}
     </div>
   );

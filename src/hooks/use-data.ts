@@ -321,3 +321,119 @@ export function useApprove() {
     },
   });
 }
+
+// ---------- Social: Posts ----------
+export function usePostsFeed(tab: "following" | "explore" = "following") {
+  return useQuery({
+    queryKey: ["posts-feed", tab],
+    queryFn: () => api.get<{ posts: any[] }>(`/api/posts/feed?tab=${tab}`),
+    refetchInterval: 30000,
+  });
+}
+export function useLikePost() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (postId: string) => api.post<{ liked: boolean }>(`/api/posts/${postId}/like`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["posts-feed"] }),
+  });
+}
+
+// ---------- Social: Stories ----------
+export function useStories() {
+  return useQuery({ queryKey: ["stories"], queryFn: () => api.get<{ groups: any[] }>("/api/stories"), refetchInterval: 60000 });
+}
+export function useMarkStoryViewed() {
+  return useMutation({ mutationFn: (storyId: string) => api.patch<{ ok: boolean }>("/api/stories", { storyId }) });
+}
+
+// ---------- Social: Follows ----------
+export function useFollows() {
+  return useQuery({ queryKey: ["follows"], queryFn: () => api.get<{ follows: any[]; ids: string[] }>("/api/follows") });
+}
+export function useToggleFollow() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (restaurantId: string) => api.post<{ following: boolean }>("/api/follows", { restaurantId }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["follows"] }); qc.invalidateQueries({ queryKey: ["posts-feed"] }); },
+  });
+}
+
+// ---------- Group Orders ----------
+export function useGroupOrder(code: string | null) {
+  return useQuery({
+    enabled: !!code,
+    queryKey: ["group-order", code],
+    queryFn: () => api.get<{ groupOrder: any }>(`/api/group-orders?code=${code}`),
+    refetchInterval: 4000,
+  });
+}
+export function useCreateGroupOrder() {
+  return useMutation({ mutationFn: (restaurantId: string) => api.post<{ groupOrder: any }>("/api/group-orders", { restaurantId }) });
+}
+export function useAddGroupItem() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ code, ...body }: { code: string } & any) => api.post<{ item: any }>(`/api/group-orders/${code}/items`, body),
+    onSuccess: (_d, v) => qc.invalidateQueries({ queryKey: ["group-order", v.code] }),
+  });
+}
+export function useRemoveGroupItem() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ code, itemId }: { code: string; itemId: string }) => api.del(`/api/group-orders/${code}/items?itemId=${itemId}`),
+    onSuccess: (_d, v) => qc.invalidateQueries({ queryKey: ["group-order", v.code] }),
+  });
+}
+export function useCheckoutGroupOrder() {
+  return useMutation({
+    mutationFn: ({ code, ...body }: { code: string } & any) => api.post<{ order: any }>(`/api/group-orders/${code}/checkout`, body),
+  });
+}
+
+// ---------- Addresses ----------
+export function useAddresses() {
+  return useQuery({ queryKey: ["addresses"], queryFn: () => api.get<{ addresses: any[] }>("/api/addresses") });
+}
+export function useAddAddress() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: any) => api.post<{ address: any }>("/api/addresses", body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["addresses"] }),
+  });
+}
+export function useDeleteAddress() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.del(`/api/addresses/${id}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["addresses"] }),
+  });
+}
+
+// ---------- Restaurant Social + Ads ----------
+export function useRestaurantPosts() {
+  return useQuery({ queryKey: ["restaurant-posts"], queryFn: () => api.get<{ posts: any[] }>("/api/restaurant/posts") });
+}
+export function useCreateRestaurantPost() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: any) => api.post<{ post: any }>("/api/restaurant/posts", body),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["restaurant-posts"] }); qc.invalidateQueries({ queryKey: ["posts-feed"] }); },
+  });
+}
+export function useRestaurantAds() {
+  return useQuery({ queryKey: ["restaurant-ads"], queryFn: () => api.get<any>("/api/restaurant/ads") });
+}
+export function useSponsorPost() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (postId: string) => api.post<{ ok: boolean }>("/api/restaurant/ads", { postId }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["restaurant-ads"] }); qc.invalidateQueries({ queryKey: ["restaurant-posts"] }); },
+  });
+}
+export function useBoostPlan() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (plan: string) => api.post<{ ok: boolean }>("/api/restaurant/boost", { plan }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["restaurant-ads"] }); },
+  });
+}

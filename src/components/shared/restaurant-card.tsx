@@ -1,12 +1,12 @@
 "use client";
 
-import { Clock, Bike, Heart } from "lucide-react";
+import { Clock, Bike, Heart, UserPlus, UserCheck } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { StarRating, Price } from "./star-rating";
 import type { Restaurant } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useApp } from "@/lib/store";
-import { useToggleFavorite } from "@/hooks/use-data";
+import { useToggleFavorite, useToggleFollow } from "@/hooks/use-data";
 import { toast } from "sonner";
 
 const coverGradients: Record<string, string> = {
@@ -21,8 +21,12 @@ export function RestaurantCard({ r, onClick, className }: { r: any; onClick?: ()
   const favoriteIds = useApp((s) => s.favoriteIds);
   const toggleFavorite = useApp((s) => s.toggleFavorite);
   const toggleFavMut = useToggleFavorite();
+  const followIds = useApp((s) => s.followIds);
+  const toggleFollow = useApp((s) => s.toggleFollow);
+  const toggleFollowMut = useToggleFollow();
   const authUser = useApp((s) => s.authUser);
   const isFav = favoriteIds.includes(r.id);
+  const isFollowing = followIds.includes(r.id);
 
   const onHeart = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -30,6 +34,14 @@ export function RestaurantCard({ r, onClick, className }: { r: any; onClick?: ()
     toggleFavorite(r.id);
     toggleFavMut.mutate(r.id);
     toast.success(isFav ? "Quitado de favoritos" : "Añadido a favoritos ❤️");
+  };
+
+  const onFollow = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!authUser || authUser.role !== "cliente") { toast("Inicia sesión como cliente para seguir restaurantes"); return; }
+    toggleFollow(r.id);
+    toggleFollowMut.mutate(r.id);
+    toast.success(isFollowing ? "Dejaste de seguir" : `Siguiendo a ${r.name} ✓`);
   };
 
   return (
@@ -52,9 +64,14 @@ export function RestaurantCard({ r, onClick, className }: { r: any; onClick?: ()
           </span>
         )}
         {authUser?.role === "cliente" && (
-          <button onClick={onHeart} className="absolute right-2 top-2 grid h-8 w-8 place-items-center rounded-full glass shadow-soft transition hover:scale-110" aria-label="Favorito">
-            <Heart size={15} className={cn("transition", isFav ? "fill-current" : "")} style={{ color: isFav ? "var(--antojo)" : "white" }} />
-          </button>
+          <div className="absolute right-2 top-2 flex gap-1.5">
+            <button onClick={onFollow} className="grid h-8 w-8 place-items-center rounded-full glass shadow-soft transition hover:scale-110" aria-label="Seguir">
+              {isFollowing ? <UserCheck size={15} style={{ color: "var(--lima)" }} /> : <UserPlus size={15} className="text-white" />}
+            </button>
+            <button onClick={onHeart} className="grid h-8 w-8 place-items-center rounded-full glass shadow-soft transition hover:scale-110" aria-label="Favorito">
+              <Heart size={15} className={cn("transition", isFav ? "fill-current" : "")} style={{ color: isFav ? "var(--antojo)" : "white" }} />
+            </button>
+          </div>
         )}
         <div className="absolute bottom-2 left-2 right-2 flex items-end justify-between text-white">
           <p className="text-[11px] font-medium opacity-90">{r.cuisine}</p>

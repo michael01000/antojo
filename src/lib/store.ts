@@ -12,10 +12,13 @@ export type CustomerView =
   | "orders"
   | "rewards"
   | "prime"
-  | "assistant";
+  | "assistant"
+  | "community"
+  | "groupOrder";
+
+export type RestaurantView = "orders" | "menu" | "analytics" | "promos" | "profile" | "boost";
 
 export type DriverView = "home" | "earnings" | "active";
-export type RestaurantView = "orders" | "menu" | "analytics" | "promos";
 export type AdminView = "overview" | "orders" | "restaurants" | "drivers" | "revenue" | "promos";
 
 interface AuthUser {
@@ -67,6 +70,13 @@ interface AppState {
   favoriteIds: string[];
   setFavoriteIds: (ids: string[]) => void;
   toggleFavorite: (id: string) => void;
+  // follows cache (ids)
+  followIds: string[];
+  setFollowIds: (ids: string[]) => void;
+  toggleFollow: (id: string) => void;
+  // active group order code
+  activeGroupOrderCode: string | null;
+  setActiveGroupOrderCode: (code: string | null) => void;
 
   // Driver
   driverView: DriverView;
@@ -116,6 +126,14 @@ export const useApp = create<AppState>()(
         const cur = get().favoriteIds;
         set({ favoriteIds: cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id] });
       },
+      followIds: [],
+      setFollowIds: (ids) => set({ followIds: ids }),
+      toggleFollow: (id) => {
+        const cur = get().followIds;
+        set({ followIds: cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id] });
+      },
+      activeGroupOrderCode: null,
+      setActiveGroupOrderCode: (code) => set({ activeGroupOrderCode: code, customerView: code ? "groupOrder" : "discover" }),
 
       cart: [],
       cartRestaurantId: null,

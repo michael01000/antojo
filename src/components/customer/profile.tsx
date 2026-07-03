@@ -2,12 +2,12 @@
 
 import { useState } from "react";
 import { useApp } from "@/lib/store";
-import { useUpdateProfile, useCustomer } from "@/hooks/use-data";
+import { useUpdateProfile, useCustomer, useAddresses, useAddAddress, useDeleteAddress } from "@/hooks/use-data";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { ChevronLeft, User, Mail, Phone, MapPin, CreditCard, Shield, Bell, Crown, LogOut, Check, Bike, Store, ShoppingBag } from "lucide-react";
+import { ChevronLeft, User, Mail, Phone, MapPin, CreditCard, Shield, Bell, Crown, LogOut, Check, Bike, Store, ShoppingBag, Plus, Trash2, Home, Briefcase } from "lucide-react";
 import { toast } from "sonner";
 import { useLogout } from "@/hooks/use-data";
 import { cop } from "@/lib/format";
@@ -128,6 +128,9 @@ export function Profile() {
             </Card>
           )}
 
+          {/* Addresses management (customer) */}
+          {authUser.role === "cliente" && <AddressesSection />}
+
           {/* Payment methods (customer) */}
           {authUser.role === "cliente" && (
             <Card className="p-4 shadow-soft">
@@ -186,5 +189,69 @@ function Toggle({ label, defaultOn }: { label: string; defaultOn?: boolean }) {
         <span className="absolute top-0.5 h-4 w-4 rounded-full bg-white transition-all" style={{ left: on ? "18px" : "2px" }} />
       </button>
     </div>
+  );
+}
+
+function AddressesSection() {
+  const { data, isLoading } = useAddresses();
+  const addMut = useAddAddress();
+  const delMut = useDeleteAddress();
+  const [showForm, setShowForm] = useState(false);
+  const [label, setLabel] = useState("Casa");
+  const [street, setStreet] = useState("");
+  const [details, setDetails] = useState("");
+  const addresses = data?.addresses ?? [];
+
+  const handleAdd = async () => {
+    if (!street.trim()) { toast.error("Escribe la dirección"); return; }
+    try {
+      await addMut.mutateAsync({ label, street, details });
+      setStreet(""); setDetails(""); setShowForm(false);
+      toast.success("Dirección guardada ✓");
+    } catch (e: any) { toast.error(e.message); }
+  };
+
+  const labelIcon = (l: string) => l.toLowerCase().includes("casa") ? Home : l.toLowerCase().includes("trab") ? Briefcase : MapPin;
+
+  return (
+    <Card className="p-4 shadow-soft">
+      <div className="mb-3 flex items-center justify-between">
+        <h3 className="flex items-center gap-1.5 font-display font-bold"><MapPin size={16} style={{ color: "var(--antojo)" }} /> Mis direcciones</h3>
+        <Button size="sm" variant="outline" className="rounded-full gap-1" onClick={() => setShowForm(!showForm)}><Plus size={13} /> {showForm ? "Cancelar" : "Agregar"}</Button>
+      </div>
+
+      {showForm && (
+        <div className="mb-3 space-y-2 rounded-xl bg-secondary/40 p-3">
+          <div className="flex gap-2">
+            {["Casa", "Trabajo", "Otra"].map((l) => (
+              <button key={l} onClick={() => setLabel(l)} className={cn("flex-1 rounded-lg py-1.5 text-xs font-semibold transition", label === l ? "text-white" : "bg-card")} style={label === l ? { background: "var(--antojo)" } : undefined}>{l}</button>
+            ))}
+          </div>
+          <Input value={street} onChange={(e) => setStreet(e.target.value)} placeholder="Ej: Calle 72 #11-25, Chapinero" className="h-10" />
+          <Input value={details} onChange={(e) => setDetails(e.target.value)} placeholder="Detalles (apto, torre, instrucciones)" className="h-10" />
+          <Button className="w-full rounded-xl" style={{ background: "var(--antojo)", color: "white" }} disabled={addMut.isPending} onClick={handleAdd}>Guardar dirección</Button>
+        </div>
+      )}
+
+      {isLoading ? <div className="space-y-2">{[0,1].map(i => <div key={i} className="h-14 rounded-xl bg-secondary/40 shimmer" />)}</div> : addresses.length === 0 ? (
+        <p className="py-4 text-center text-sm text-muted-foreground">No tienes direcciones guardadas</p>
+      ) : (
+        <div className="space-y-1.5">
+          {addresses.map((a: any) => {
+            const Icon = labelIcon(a.label);
+            return (
+              <div key={a.id} className="flex items-center gap-2.5 rounded-xl border border-border/60 p-2.5">
+                <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-secondary"><Icon size={14} /></div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold">{a.label}</p>
+                  <p className="truncate text-xs text-muted-foreground">{a.street}{a.details ? ` · ${a.details}` : ""}</p>
+                </div>
+                <button onClick={() => { delMut.mutate(a.id); toast.success("Dirección eliminada"); }} className="text-muted-foreground hover:text-destructive"><Trash2 size={15} /></button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </Card>
   );
 }

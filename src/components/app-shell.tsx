@@ -34,6 +34,7 @@ type NavItem = { view: string; label: string; icon: any };
 const NAV: Record<string, NavItem[]> = {
   cliente: [
     { view: "discover", label: "Descubre", icon: Compass },
+    { view: "community", label: "Comunidad", icon: Users },
     { view: "orders", label: "Pedidos", icon: Receipt },
     { view: "favorites", label: "Favoritos", icon: Heart },
     { view: "rewards", label: "Recompensas", icon: Gift },
@@ -51,8 +52,8 @@ const NAV: Record<string, NavItem[]> = {
   restaurante: [
     { view: "orders", label: "Pedidos", icon: Receipt },
     { view: "menu", label: "Menú", icon: UtensilsCrossed },
+    { view: "boost", label: "Impulsa", icon: TrendingUp },
     { view: "analytics", label: "Analítica", icon: BarChart3 },
-    { view: "promos", label: "Promos", icon: Tag },
     { view: "profile", label: "Perfil", icon: UserIcon },
   ],
   admin: [
