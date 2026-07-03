@@ -13,7 +13,7 @@ import { LandingPage } from "./landing/landing-page";
 import {
   Compass, Receipt, Gift, Crown, Sparkles, Bike, Wallet, Store, UtensilsCrossed,
   BarChart3, Tag, LayoutDashboard, TrendingUp, ShoppingCart, Moon, Sun,
-  MapPin, Search as SearchIcon, Bell, Heart, User as UserIcon, LogOut, ChevronDown, CheckCheck, Settings,
+  MapPin, Search as SearchIcon, Bell, Heart, User as UserIcon, LogOut, ChevronDown, CheckCheck, Settings, Users,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
