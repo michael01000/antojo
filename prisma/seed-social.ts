@@ -35,19 +35,21 @@ async function main() {
   // Crear posts
   for (let i = 0; i < restaurants.length; i++) {
     const r = restaurants[i];
+    // Linkear el post al primer menuItem popular del restaurante (para el CTA con precio real)
+    const menuItem = await db.menuItem.findFirst({ where: { restaurantId: r.id, isAvailable: true }, orderBy: { isPopular: "desc" } });
     await db.post.create({
       data: {
         restaurantId: r.id,
         imageUrl: FOOD_IMAGES[i],
         caption: captions[i],
-        menuItemId: null,
+        menuItemId: menuItem?.id ?? null,
         isSponsored: i < 2, // los primeros 2 son patrocinados
         sponsoredUntil: i < 2 ? new Date(Date.now() + 7 * 86400000) : null,
         likes: Math.floor(Math.random() * 80) + 15,
       },
     });
 
-    // Crear story
+    // Crear story (también linkeada al menuItem)
     const expiresAt = new Date();
     expiresAt.setHours(expiresAt.getHours() + 24);
     await db.story.create({
@@ -55,6 +57,7 @@ async function main() {
         restaurantId: r.id,
         imageUrl: FOOD_IMAGES[i],
         caption: captions[i].split(" ").slice(0, 4).join(" ") + "...",
+        menuItemId: menuItem?.id ?? null,
         expiresAt,
       },
     });

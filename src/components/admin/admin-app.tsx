@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useApp } from "@/lib/store";
-import { useAdminStats, useAdminOrders, useAdminDrivers, useAllRestaurants, useAdminUsers, useApprove } from "@/hooks/use-data";
+import { useAdminStats, useAdminOrders, useAdminDrivers, useAllRestaurants, useAdminUsers, useApprove, useAdminAudit, useRefreshAudit } from "@/hooks/use-data";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -11,7 +11,7 @@ import { OrderStatusBadge } from "@/components/shared/status-badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import {
   LayoutDashboard, Receipt, Store, Bike, TrendingUp, Tag, DollarSign, Users, ShoppingBag,
-  Activity, ArrowUpRight, Star, Plus, Settings,
+  Activity, ArrowUpRight, Star, Plus, Settings, ShieldAlert, RefreshCw, AlertTriangle, CheckCircle2,
 } from "lucide-react";
 import { cop, copShort, timeAgo } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -20,6 +20,8 @@ import {
   AreaChart, Area, ResponsiveContainer, XAxis, Tooltip, BarChart, Bar, PieChart, Pie, Cell,
 } from "recharts";
 import { toast } from "sonner";
+import { AdminEarningsView } from "./earnings-view";
+import { ProfitabilityView } from "./profitability-view";
 
 const PIE_COLORS = ["var(--antojo)", "var(--mango)", "var(--lima)", "var(--mora)", "var(--cafe)"];
 
@@ -29,10 +31,11 @@ export function AdminApp() {
     <div className="px-3 pt-4 pb-6 sm:px-5 lg:px-0">
       {view === "overview" && <Overview />}
       {view === "orders" && <AllOrders />}
+      {view === "earnings" && <AdminEarningsView />}
+      {view === "profitability" && <ProfitabilityView />}
       {view === "restaurants" && <ManageRestaurants />}
       {view === "drivers" && <ManageDrivers />}
       {view === "users" && <ManageUsers />}
-      {view === "revenue" && <Revenue />}
       {view === "promos" && <AdminPromos />}
     </div>
   );
@@ -57,6 +60,9 @@ function Overview() {
         <KPICard label="Ticket prom." value={copShort(k.avgTicket)} icon={TrendingUp} color="var(--antojo)" />
         <KPICard label="Promos activas" value={`${k.promosActive}`} icon={Tag} color="var(--mango)" />
       </div>
+
+      {/* Tarjeta de auditoría de rentabilidad + kill-switch */}
+      <AuditCard />
 
       <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
         {/* Revenue 7d */}
@@ -139,6 +145,90 @@ function Overview() {
           </div>
         </Card>
       </div>
+    </div>
+  );
+}
+
+// ─── Tarjeta de auditoría de rentabilidad + kill-switch ───
+function AuditCard() {
+  const { data, isLoading } = useAdminAudit();
+  const refreshMut = useRefreshAudit();
+
+  if (isLoading || !data) {
+    return <Skeleton className="h-32 rounded-2xl" />;
+  }
+
+  const sim = data.simulation;
+  const live = data.live;
+  const ks = data.killSwitch;
+  const marginPct = (sim.margin * 100).toFixed(1);
+  const paused = ks.active;
+
+  return (
+    <Card className={cn("overflow-hidden p-0 shadow-soft", paused && "ring-2 ring-red-500/40")}>
+      {/* Header con indicador verde/rojo */}
+      <div className="flex items-center justify-between p-4" style={{ background: paused ? "oklch(0.65 0.22 25 / 0.08)" : "oklch(0.72 0.17 145 / 0.08)" }}>
+        <div className="flex items-center gap-2.5">
+          <div className={cn("grid h-10 w-10 place-items-center rounded-xl text-white shadow-soft")} style={{ background: paused ? "var(--antojo)" : "var(--lima)" }}>
+            {paused ? <AlertTriangle size={20} /> : <CheckCircle2 size={20} />}
+          </div>
+          <div>
+            <p className="font-display text-sm font-bold">Rentabilidad de plataforma</p>
+            <p className="text-[11px] text-muted-foreground">
+              {paused ? "⚠️ Bonos pausados — margen crítico" : "✓ Bonos activos — margen saludable"}
+            </p>
+          </div>
+        </div>
+        <Button size="sm" variant="outline" className="rounded-full gap-1" disabled={refreshMut.isPending} onClick={() => refreshMut.mutate()}>
+          <RefreshCw size={13} className={refreshMut.isPending ? "animate-spin" : ""} /> Recalcular
+        </Button>
+      </div>
+
+      {/* Métricas */}
+      <div className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-4">
+        <Metric label="Margen neto" value={`${marginPct}%`} color={paused ? "var(--antojo)" : "var(--lima)"} highlight />
+        <Metric label="Comisión retenida" value={copShort(sim.commissionRetained)} sub="simulación 100 pedidos" />
+        <Metric label="Bonos pagados" value={copShort(sim.bonusesPaid)} sub={`hoy real: ${copShort(live.bonusesPaidToday)}`} />
+        <Metric label="Neto Antojo" value={copShort(sim.antojoNet)} sub={`GMV: ${copShort(sim.gmv)}`} />
+      </div>
+
+      {/* Barra de margen visual */}
+      <div className="px-4 pb-4">
+        <div className="mb-1 flex justify-between text-[10px] text-muted-foreground">
+          <span>0%</span>
+          <span style={{ color: paused ? "var(--antojo)" : "var(--lima)" }}>Umbral kill-switch: 40%</span>
+          <span>100%</span>
+        </div>
+        <div className="relative h-2 overflow-hidden rounded-full bg-secondary">
+          <div className="absolute inset-y-0 left-[40%] w-px bg-muted-foreground/40" />
+          <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(100, sim.margin * 100)}%`, background: paused ? "var(--antojo)" : "var(--lima)" }} />
+        </div>
+        <p className="mt-1.5 text-[11px] text-muted-foreground">{ks.reason}</p>
+      </div>
+
+      {/* Desglose por plan */}
+      {sim.breakdown.length > 0 && (
+        <div className="border-t border-border/40 p-4">
+          <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Desglose por plan</p>
+          <div className="flex flex-wrap gap-2">
+            {sim.breakdown.map((b: any) => (
+              <div key={b.plan} className="rounded-lg bg-secondary/50 px-2.5 py-1 text-[11px]">
+                <span className="font-bold capitalize">{b.plan}</span>: {b.orders} pedidos · {copShort(b.commission)}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </Card>
+  );
+}
+
+function Metric({ label, value, sub, color, highlight }: { label: string; value: string; sub?: string; color?: string; highlight?: boolean }) {
+  return (
+    <div>
+      <p className="text-[11px] text-muted-foreground">{label}</p>
+      <p className={cn("font-display font-extrabold leading-none", highlight ? "text-xl" : "text-lg")} style={color ? { color } : undefined}>{value}</p>
+      {sub && <p className="mt-0.5 text-[10px] text-muted-foreground">{sub}</p>}
     </div>
   );
 }
@@ -297,45 +387,6 @@ function ManageUsers() {
           ))}
         </div>
       )}
-    </div>
-  );
-}
-
-function Revenue() {
-  const { data } = useAdminStats();
-  if (!data) return <Skeleton className="h-64 rounded-2xl" />;
-  return (
-    <div className="space-y-4">
-      <h1 className="font-display text-2xl font-extrabold tracking-tight">Ingresos</h1>
-      <Card className="p-4 shadow-soft">
-        <h3 className="mb-3 font-display font-bold">Pedidos por día (7 días)</h3>
-        <div className="h-48">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={data.revenue7d}>
-              <XAxis dataKey="label" tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} />
-              <Tooltip contentStyle={{ borderRadius: 12, border: "1px solid var(--border)", fontSize: 12 }} />
-              <Bar dataKey="orders" fill="var(--mango)" radius={[6,6,0,0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </Card>
-      <Card className="p-4 shadow-soft">
-        <h3 className="mb-3 font-display font-bold">GMV por restaurante</h3>
-        <div className="space-y-2">
-          {data.topRestaurants.map((r: any, i: number) => {
-            const max = data.topRestaurants[0].gmv;
-            return (
-              <div key={r.id} className="flex items-center gap-3">
-                <img src={r.imageUrl} alt="" className="h-8 w-8 rounded-lg object-cover" />
-                <div className="flex-1">
-                  <div className="flex justify-between text-sm"><span className="font-semibold">{r.name}</span><span className="font-bold">{cop(r.gmv)}</span></div>
-                  <div className="mt-1 h-2 rounded-full bg-secondary"><div className="h-full rounded-full" style={{ width: `${(r.gmv/max)*100}%`, background: PIE_COLORS[i % PIE_COLORS.length] }} /></div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </Card>
     </div>
   );
 }

@@ -119,6 +119,8 @@ model MenuItem {
   tags         String      @default("")
   restaurant   Restaurant  @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   orderItems   OrderItem[]
+  posts        Post[]
+  stories      Story[]
 }
 
 model OrderItem {
@@ -155,6 +157,10 @@ model Driver {
   // Gamificación
   bonusEarnedToday Int   @default(0)
   lastBonusTier    Int   @default(0)
+  // Ledger de efectivo: saldo que el domiciliario debe consignar a la plataforma
+  // (pedidos en efectivo donde recibió el dinero físico del cliente).
+  // Si supera CASH_OWNED_LIMIT, no puede recibir más pedidos en efectivo.
+  cashOwed         Int   @default(0)
 }
 
 model Order {
@@ -242,15 +248,19 @@ model Subscription {
 }
 
 model Promotion {
-  id          String  @id @default(cuid())
-  code        String  @unique
-  title       String
-  description String
-  type        String
-  value       Int
-  minOrder    Int     @default(0)
-  active      Boolean @default(true)
-  uses        Int     @default(0)
+  id              String  @id @default(cuid())
+  code            String  @unique
+  title           String
+  description     String
+  type            String    // percent | fixed | free_delivery
+  value           Int
+  minOrder        Int     @default(0)
+  fundedBy        String  @default("restaurant") // restaurant | antojo — quién asume el descuento
+  active          Boolean @default(true)
+  uses            Int     @default(0)
+  // ─── Sistema de Recompensas (cupones COIN-XXXX) ───
+  ownerCustomerId String?   // si es un cupón canjeado con coins, a quién pertenece
+  used            Boolean  @default(false) // si ya fue usado en un pedido
 }
 
 model GroupOrder {
@@ -302,6 +312,7 @@ model Post {
   likes        Int       @default(0)
   createdAt    DateTime  @default(now())
   restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  menuItem     MenuItem?  @relation(fields: [menuItemId], references: [id])
   postLikes    PostLike[]
 }
 
@@ -324,6 +335,7 @@ model Story {
   expiresAt    DateTime
   createdAt    DateTime @default(now())
   restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  menuItem     MenuItem?  @relation(fields: [menuItemId], references: [id])
   views        StoryView[]
 }
 

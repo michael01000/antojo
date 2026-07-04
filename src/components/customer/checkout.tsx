@@ -55,7 +55,7 @@ export function Checkout() {
   }
 
   const subtotal = cart.reduce((s, i) => s + i.price * i.qty, 0);
-  const baseDelivery = primeMember ? 0 : 4500;
+  const baseDelivery = primeMember ? (subtotal >= 25000 ? 0 : 4500) : 4500;
   const deliveryFee = applied?.freeDelivery ? 0 : baseDelivery;
   const serviceFee = Math.round(subtotal * 0.08);
   const discount = applied?.discount ?? 0;

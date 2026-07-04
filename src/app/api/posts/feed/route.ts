@@ -1,7 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getAuthUser } from "@/lib/auth";
-import { getCurrentCustomer } from "@/lib/server";
+
+// Feed social: posts de restaurantes seguidos + patrocinados + explorar.
+// Incluye el join del menuItem (cuando existe) para habilitar el CTA
+// "Ordenar este plato" con precio real — fricción cero, sin salir del feed.
+const MENU_ITEM_INCLUDE = {
+  select: {
+    id: true,
+    name: true,
+    price: true,
+    emoji: true,
+    isAvailable: true,
+  },
+} as const;
 
 // Feed social: posts de restaurantes seguidos + patrocinados + explorar
 export async function GET(req: NextRequest) {
@@ -12,6 +24,12 @@ export async function GET(req: NextRequest) {
   const now = new Date();
   const whereActive = { OR: [{ isSponsored: false }, { isSponsored: true, sponsoredUntil: { gt: now } }] };
 
+  // include compartido: restaurante + menuItem (si está linkeado)
+  const postInclude = {
+    restaurant: { select: { id: true, name: true, imageUrl: true, accentColor: true, cuisine: true, neighborhood: true, deliveryFee: true, deliveryMin: true } },
+    menuItem: MENU_ITEM_INCLUDE,
+  } as const;
+
   let posts;
   if (tab === "following" && customer) {
     const follows = await db.follow.findMany({ where: { customerId: customer.id }, select: { restaurantId: true } });
@@ -19,13 +37,13 @@ export async function GET(req: NextRequest) {
     // Patrocinados primero (máx 2), luego seguidos
     const sponsored = await db.post.findMany({
       where: { ...whereActive, isSponsored: true },
-      include: { restaurant: true },
+      include: postInclude,
       orderBy: { createdAt: "desc" },
       take: 2,
     });
     const following = await db.post.findMany({
       where: { restaurantId: { in: followedIds }, isSponsored: false },
-      include: { restaurant: true },
+      include: postInclude,
       orderBy: { createdAt: "desc" },
       take: 20,
     });
@@ -34,7 +52,7 @@ export async function GET(req: NextRequest) {
     // Explore: todos los posts, patrocinados primero
     posts = await db.post.findMany({
       where: whereActive,
-      include: { restaurant: true },
+      include: postInclude,
       orderBy: [{ isSponsored: "desc" }, { createdAt: "desc" }],
       take: 30,
     });
@@ -61,7 +79,18 @@ export async function GET(req: NextRequest) {
       restaurant: {
         id: p.restaurant.id, name: p.restaurant.name, imageUrl: p.restaurant.imageUrl,
         accentColor: p.restaurant.accentColor, cuisine: p.restaurant.cuisine,
+        neighborhood: p.restaurant.neighborhood, deliveryFee: p.restaurant.deliveryFee, deliveryMin: p.restaurant.deliveryMin,
       },
+      // menuItem completo para el CTA de "Ordenar este plato" (precio real)
+      menuItem: p.menuItem
+        ? {
+            id: p.menuItem.id,
+            name: p.menuItem.name,
+            price: p.menuItem.price,
+            emoji: p.menuItem.emoji,
+            isAvailable: p.menuItem.isAvailable,
+          }
+        : null,
     })),
   });
 }

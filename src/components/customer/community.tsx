@@ -6,7 +6,7 @@ import { useApp } from "@/lib/store";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Heart, ShoppingBag, UserPlus, UserCheck, Flame, Users, X, ChevronRight } from "lucide-react";
+import { Heart, ShoppingBag, ShoppingCart, UserPlus, UserCheck, Check, Flame, Users, X, ChevronRight } from "lucide-react";
 import { cop, timeAgo } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -58,10 +58,14 @@ function PostCard({ post }: { post: any }) {
   const followMut = useToggleFollow();
   const addToCart = useApp((s) => s.addToCart);
   const setSelectedRestaurant = useApp((s) => s.setSelectedRestaurant);
+  const setCustomerView = useApp((s) => s.setCustomerView);
+  const cart = useApp((s) => s.cart);
   const followIds = useApp((s) => s.followIds);
   const isFollowing = followIds.includes(post.restaurant.id);
   const [liked, setLiked] = useState(post.liked);
   const [likeCount, setLikeCount] = useState(post.likes);
+  // micro-feedback del botón "Pedir": "idle" → "added" (check, 1.5s) → "idle"
+  const [orderState, setOrderState] = useState<"idle" | "added">("idle");
 
   const handleLike = async () => {
     setLiked(!liked);
@@ -74,16 +78,31 @@ function PostCard({ post }: { post: any }) {
     toast.success(isFollowing ? "Dejaste de seguir" : `Siguiendo a ${post.restaurant.name} ✓`);
   };
 
+  // Fricción cero: añade el plato al carrito con precio real SIN salir del feed.
+  // Micro-feedback: el botón cambia a check animado por 1.5s + toast.
   const handleOrder = () => {
-    if (post.menuItemId) {
-      addToCart({
-        menuItemId: post.menuItemId, name: post.caption.split("\n")[0], emoji: "🍽️",
-        price: 0, qty: 1, restaurantId: post.restaurant.id, restaurantName: post.restaurant.name,
-      });
-      toast.success("¡Plato añadido al carrito! 🛒");
+    const item = post.menuItem;
+    if (!item || !item.isAvailable) {
+      toast.error("Este plato no está disponible ahora");
+      return;
     }
-    setSelectedRestaurant(post.restaurant.id);
+    addToCart({
+      menuItemId: item.id,
+      name: item.name,
+      emoji: item.emoji ?? "🍽️",
+      price: item.price,
+      qty: 1,
+      restaurantId: post.restaurant.id,
+      restaurantName: post.restaurant.name,
+    });
+    // micro-feedback
+    setOrderState("added");
+    toast.success(`${item.emoji ?? "🍽️"} ${item.name} añadido al carrito`, { duration: 1800 });
+    setTimeout(() => setOrderState("idle"), 1500);
   };
+
+  // ¿Este plato ya está en el carrito?
+  const inCart = cart.some((c) => c.menuItemId === post.menuItem?.id);
 
   return (
     <Card className="overflow-hidden p-0 shadow-soft">
@@ -104,9 +123,43 @@ function PostCard({ post }: { post: any }) {
           {isFollowing ? "Siguiendo" : "Seguir"}
         </button>
       </div>
-      {/* Image */}
-      <div className="relative aspect-square bg-secondary" onClick={() => {}}>
+      {/* Image + CTA anclado al pie */}
+      <div className="relative aspect-square bg-secondary">
         <img src={post.imageUrl} alt={post.caption} className="h-full w-full object-cover" />
+        {/* Gradient overlay para legibilidad del CTA */}
+        {post.menuItem && (
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/70 to-transparent" />
+        )}
+        {/* CTA anclado — color primario, precio real, micro-feedback */}
+        {post.menuItem && (
+          <div className="absolute inset-x-2 bottom-2">
+            <button
+              onClick={handleOrder}
+              disabled={orderState === "added" || !post.menuItem.isAvailable}
+              className={cn(
+                "flex w-full items-center justify-between gap-2 rounded-xl px-3.5 py-2.5 text-sm font-bold shadow-glow transition-all active:scale-[0.98]",
+                orderState === "added" ? "text-white" : "text-white"
+              )}
+              style={orderState === "added" ? { background: "var(--lima)" } : { background: "var(--antojo)" }}
+            >
+              <span className="flex items-center gap-1.5">
+                {orderState === "added" ? (
+                  <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring", stiffness: 500, damping: 15 }}>
+                    <Check size={16} />
+                  </motion.span>
+                ) : (
+                  <ShoppingBag size={16} />
+                )}
+                {orderState === "added" ? "¡Añadido!" : inCart ? "Añadir otro" : "Ordenar este plato"}
+              </span>
+              {orderState !== "added" && (
+                <span className="rounded-full bg-white/20 px-2 py-0.5 text-xs">
+                  {cop(post.menuItem.price)}
+                </span>
+              )}
+            </button>
+          </div>
+        )}
       </div>
       {/* Actions */}
       <div className="p-3">
@@ -116,15 +169,15 @@ function PostCard({ post }: { post: any }) {
             <span className="font-semibold tabular-nums">{likeCount}</span>
           </button>
           <span className="text-xs text-muted-foreground">{timeAgo(post.createdAt)}</span>
+          {/* Acceso rápido al carrito si hay items (sin salir del feed) */}
+          {cart.length > 0 && (
+            <button onClick={() => setCustomerView("checkout")} className="ml-auto flex items-center gap-1 rounded-full bg-secondary px-2.5 py-1 text-xs font-semibold transition hover:bg-secondary/80">
+              <ShoppingCart size={13} /> {cart.reduce((s, i) => s + i.qty, 0)}
+            </button>
+          )}
         </div>
         {/* Caption */}
         <p className="mt-2 text-sm leading-relaxed">{post.caption}</p>
-        {/* CTA */}
-        {post.menuItemId && (
-          <Button className="mt-3 w-full rounded-xl gap-2 shadow-soft" style={{ background: "var(--antojo)", color: "white" }} onClick={handleOrder}>
-            <ShoppingBag size={16} /> Ordenar este plato
-          </Button>
-        )}
       </div>
     </Card>
   );
@@ -165,7 +218,7 @@ function StoriesBar({ groups }: { groups: any[] }) {
 
 function StoryViewer({ groups, viewing, setViewing }: { groups: any[]; viewing: { groupIdx: number; storyIdx: number }; setViewing: (v: any) => void }) {
   const markViewed = useMarkStoryViewed();
-  const setSelectedRestaurant = useApp((s) => s.setSelectedRestaurant);
+  const addToCart = useApp((s) => s.addToCart);
   const group = groups[viewing.groupIdx];
   const story = group?.stories[viewing.storyIdx];
 
@@ -208,8 +261,25 @@ function StoryViewer({ groups, viewing, setViewing }: { groups: any[]; viewing: 
               <span className="text-sm font-bold text-white">{group.restaurant.name}</span>
             </div>
             {story.caption && <p className="mb-3 text-sm text-white/90">{story.caption}</p>}
-            {story.menuItemId && (
-              <Button className="w-full rounded-xl gap-2" style={{ background: "var(--antojo)", color: "white" }} onClick={() => { setSelectedRestaurant(group.restaurant.id); setViewing(null); }}>
+            {story.menuItem && (
+              <Button className="w-full rounded-xl gap-2" style={{ background: "var(--antojo)", color: "white" }} onClick={() => {
+                const item = story.menuItem;
+                if (item && item.isAvailable) {
+                  addToCart({
+                    menuItemId: item.id,
+                    name: item.name,
+                    emoji: item.emoji ?? "🍽️",
+                    price: item.price,
+                    qty: 1,
+                    restaurantId: group.restaurant.id,
+                    restaurantName: group.restaurant.name,
+                  });
+                  toast.success(`${item.emoji ?? "🍽️"} ${item.name} añadido al carrito 🛒`);
+                  setViewing(null);
+                } else {
+                  toast.error("Este plato no está disponible ahora");
+                }
+              }}>
                 <Flame size={16} /> Ordenar ahora
               </Button>
             )}

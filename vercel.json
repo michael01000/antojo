@@ -3,6 +3,12 @@
   "framework": "nextjs",
   "buildCommand": "bun run build",
   "installCommand": "bun install",
+  "crons": [
+    {
+      "path": "/api/cron/revoke-pyme",
+      "schedule": "0 9 * * *"
+    }
+  ],
   "github": {
     "silent": true
   }

@@ -289,10 +289,10 @@ const driversSeed = [
 ];
 
 const promotions = [
-  { code: "BIENVENIDA10", title: "10% de bienvenida", description: "Tu primer pedido con 10% de descuento", type: "percent", value: 10, minOrder: 15000, uses: 4218 },
-  { code: "ANTOJO20", title: "20% en tu antojo", description: "Descuento de 20% en pedidos +$30.000", type: "percent", value: 20, minOrder: 30000, uses: 1842 },
-  { code: "ENVIO0", title: "Envío gratis", description: "Sin costo de envío en tu pedido", type: "free_delivery", value: 0, minOrder: 20000, uses: 5610 },
-  { code: "MERIENDA5", title: "$5.000 off merienda", description: "Descuento fijo de $5.000", type: "fixed", value: 5000, minOrder: 12000, uses: 2987 },
+  { code: "BIENVENIDA10", title: "10% de bienvenida", description: "Tu primer pedido con 10% de descuento", type: "percent", value: 10, minOrder: 15000, uses: 4218, fundedBy: "restaurant" },
+  { code: "ANTOJO20", title: "20% en tu antojo", description: "Descuento de 20% en pedidos +$30.000", type: "percent", value: 20, minOrder: 30000, uses: 1842, fundedBy: "restaurant" },
+  { code: "ENVIO0", title: "Envío gratis", description: "Sin costo de envío en tu pedido", type: "free_delivery", value: 0, minOrder: 20000, uses: 5610, fundedBy: "antojo" },
+  { code: "MERIENDA5", title: "$5.000 off merienda", description: "Descuento fijo de $5.000 (financiado por Antojo)", type: "fixed", value: 5000, minOrder: 12000, uses: 2987, fundedBy: "antojo" },
 ];
 
 const challenges = [

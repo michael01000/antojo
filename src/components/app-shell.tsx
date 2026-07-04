@@ -52,17 +52,18 @@ const NAV: Record<string, NavItem[]> = {
   restaurante: [
     { view: "orders", label: "Pedidos", icon: Receipt },
     { view: "menu", label: "Menú", icon: UtensilsCrossed },
+    { view: "earnings", label: "Ganancias", icon: Wallet },
     { view: "boost", label: "Impulsa", icon: TrendingUp },
-    { view: "analytics", label: "Analítica", icon: BarChart3 },
     { view: "profile", label: "Perfil", icon: UserIcon },
   ],
   admin: [
     { view: "overview", label: "Resumen", icon: LayoutDashboard },
     { view: "orders", label: "Pedidos", icon: Receipt },
+    { view: "earnings", label: "Ganancias", icon: TrendingUp },
+    { view: "profitability", label: "Rentabilidad", icon: BarChart3 },
     { view: "restaurants", label: "Restaurantes", icon: Store },
     { view: "drivers", label: "Domiciliarios", icon: Bike },
     { view: "users", label: "Usuarios", icon: UserIcon },
-    { view: "revenue", label: "Ingresos", icon: TrendingUp },
     { view: "promos", label: "Promos", icon: Tag },
   ],
 };

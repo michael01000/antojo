@@ -16,7 +16,10 @@ export async function GET() {
 
   const stories = await db.story.findMany({
     where: { expiresAt: { gt: now }, ...(restaurantIds && restaurantIds.length ? { restaurantId: { in: restaurantIds } } : {}) },
-    include: { restaurant: { select: { id: true, name: true, imageUrl: true, accentColor: true } } },
+    include: {
+      restaurant: { select: { id: true, name: true, imageUrl: true, accentColor: true } },
+      menuItem: { select: { id: true, name: true, price: true, emoji: true, isAvailable: true } },
+    },
     orderBy: { createdAt: "desc" },
     take: 20,
   });
@@ -26,7 +29,10 @@ export async function GET() {
   if (restaurantIds && stories.length === 0) {
     finalStories = await db.story.findMany({
       where: { expiresAt: { gt: now } },
-      include: { restaurant: { select: { id: true, name: true, imageUrl: true, accentColor: true } } },
+      include: {
+        restaurant: { select: { id: true, name: true, imageUrl: true, accentColor: true } },
+        menuItem: { select: { id: true, name: true, price: true, emoji: true, isAvailable: true } },
+      },
       orderBy: { createdAt: "desc" },
       take: 20,
     });
@@ -40,6 +46,7 @@ export async function GET() {
     }
     byRestaurant.get(s.restaurant.id).stories.push({
       id: s.id, imageUrl: s.imageUrl, caption: s.caption, menuItemId: s.menuItemId,
+      menuItem: s.menuItem ? { id: s.menuItem.id, name: s.menuItem.name, price: s.menuItem.price, emoji: s.menuItem.emoji, isAvailable: s.menuItem.isAvailable } : null,
       expiresAt: s.expiresAt.toISOString(),
     });
   }

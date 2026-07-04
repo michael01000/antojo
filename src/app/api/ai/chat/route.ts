@@ -3,7 +3,7 @@ import { aiChat } from "@/lib/ai";
 import { db } from "@/lib/db";
 import { getCurrentCustomer } from "@/lib/server";
 
-const SYSTEM = `Eres "Sazón AI", el asistente virtual de Antojo, la superapp de domicilios de comida en Colombia. Hablas español colombiano, cercano y cálido (usa "parce", "bacano", "¿qué pinta?" con moderación). 
+const SYSTEM = `Eres "Sazón AI", el asistente virtual de Antojo, la superapp de domicilios de comida en Colombia. Hablas español colombiano, cercano y cálido (usa "parce", "bacano", "¿qué pinta?" con moderación).
 
 Tu trabajo:
 - Ayudar al usuario a decidir qué pedir hoy (recomienda platos y restaurantes específicos).
@@ -43,8 +43,18 @@ export async function POST(req: NextRequest) {
     const reply = await aiChat(messages);
     return NextResponse.json({ reply: reply.trim() });
   } catch (e: any) {
-    return NextResponse.json({
-      reply: "¡Uy parcero! En este momento no puedo procesar tu mensaje. Mientras tanto, échale un ojo a las recomendaciones 'Para ti' en la pantalla de inicio 🍔✨",
-    });
+    // Logging del error real (visible en Vercel logs)
+    console.error("[Sazón AI] Error:", e?.message ?? e);
+
+    // Mensaje de fallback graceful según el tipo de error
+    let fallback = "¡Uy parcero! En este momento no puedo procesar tu mensaje. Mientras tanto, échale un ojo a las recomendaciones 'Para ti' en la pantalla de inicio 🍔✨";
+
+    if (e?.message === "AI_TIMEOUT") {
+      fallback = "Me estoy demorando más de lo normal 🐌 ¿Mientras tanto revisas las recomendaciones 'Para ti' en la pantalla de inicio? 🍔";
+    } else if (e?.message?.includes("auth") || e?.message?.includes("credential") || e?.message?.includes("API key")) {
+      fallback = "Estoy con un problema técnico temporal 🔧 Mientras lo resolvemos, explora los restaurantes en la pantalla de inicio 🍔✨";
+    }
+
+    return NextResponse.json({ reply: fallback });
   }
 }

@@ -2,12 +2,12 @@
 
 import { useState } from "react";
 import { useApp } from "@/lib/store";
-import { useUpdateProfile, useCustomer, useAddresses, useAddAddress, useDeleteAddress } from "@/hooks/use-data";
+import { useUpdateProfile, useCustomer, useAddresses, useAddAddress, useUpdateAddress, useDeleteAddress } from "@/hooks/use-data";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { ChevronLeft, User, Mail, Phone, MapPin, CreditCard, Shield, Bell, Crown, LogOut, Check, Bike, Store, ShoppingBag, Plus, Trash2, Home, Briefcase } from "lucide-react";
+import { ChevronLeft, User, Mail, Phone, MapPin, CreditCard, Shield, Bell, Crown, LogOut, Check, Bike, Store, ShoppingBag, Plus, Trash2, Pencil, Home, Briefcase } from "lucide-react";
 import { toast } from "sonner";
 import { useLogout } from "@/hooks/use-data";
 import { cop } from "@/lib/format";
@@ -195,19 +195,55 @@ function Toggle({ label, defaultOn }: { label: string; defaultOn?: boolean }) {
 function AddressesSection() {
   const { data, isLoading } = useAddresses();
   const addMut = useAddAddress();
+  const updateMut = useUpdateAddress();
   const delMut = useDeleteAddress();
+  // `editingId` null = modo crear; string = modo editar esa dirección
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [label, setLabel] = useState("Casa");
   const [street, setStreet] = useState("");
   const [details, setDetails] = useState("");
   const addresses = data?.addresses ?? [];
 
-  const handleAdd = async () => {
+  const isEditMode = !!editingId;
+
+  // Abrir formulario en modo creación
+  const openCreate = () => {
+    setEditingId(null);
+    setLabel("Casa");
+    setStreet("");
+    setDetails("");
+    setShowForm(true);
+  };
+
+  // Abrir formulario en modo edición (pre-llenado)
+  const openEdit = (a: any) => {
+    setEditingId(a.id);
+    setLabel(a.label);
+    setStreet(a.street);
+    setDetails(a.details ?? "");
+    setShowForm(true);
+  };
+
+  // Cerrar formulario
+  const closeForm = () => {
+    setShowForm(false);
+    setEditingId(null);
+    setStreet(""); setDetails(""); setLabel("Casa");
+  };
+
+  // Guardar (crear o editar según modo)
+  const handleSave = async () => {
     if (!street.trim()) { toast.error("Escribe la dirección"); return; }
     try {
-      await addMut.mutateAsync({ label, street, details });
-      setStreet(""); setDetails(""); setShowForm(false);
-      toast.success("Dirección guardada ✓");
+      if (isEditMode) {
+        await updateMut.mutateAsync({ id: editingId!, label, street, details });
+        toast.success("Dirección actualizada ✓");
+      } else {
+        await addMut.mutateAsync({ label, street, details });
+        toast.success("Dirección guardada ✓");
+      }
+      closeForm();
     } catch (e: any) { toast.error(e.message); }
   };
 
@@ -217,9 +253,12 @@ function AddressesSection() {
     <Card className="p-4 shadow-soft">
       <div className="mb-3 flex items-center justify-between">
         <h3 className="flex items-center gap-1.5 font-display font-bold"><MapPin size={16} style={{ color: "var(--antojo)" }} /> Mis direcciones</h3>
-        <Button size="sm" variant="outline" className="rounded-full gap-1" onClick={() => setShowForm(!showForm)}><Plus size={13} /> {showForm ? "Cancelar" : "Agregar"}</Button>
+        <Button size="sm" variant="outline" className="rounded-full gap-1" onClick={showForm ? closeForm : openCreate}>
+          <Plus size={13} /> {showForm ? "Cancelar" : "Agregar"}
+        </Button>
       </div>
 
+      {/* Formulario (crear O editar — pre-llenado en modo edición) */}
       {showForm && (
         <div className="mb-3 space-y-2 rounded-xl bg-secondary/40 p-3">
           <div className="flex gap-2">
@@ -229,10 +268,13 @@ function AddressesSection() {
           </div>
           <Input value={street} onChange={(e) => setStreet(e.target.value)} placeholder="Ej: Calle 72 #11-25, Chapinero" className="h-10" />
           <Input value={details} onChange={(e) => setDetails(e.target.value)} placeholder="Detalles (apto, torre, instrucciones)" className="h-10" />
-          <Button className="w-full rounded-xl" style={{ background: "var(--antojo)", color: "white" }} disabled={addMut.isPending} onClick={handleAdd}>Guardar dirección</Button>
+          <Button className="w-full rounded-xl" style={{ background: "var(--antojo)", color: "white" }} disabled={addMut.isPending || updateMut.isPending} onClick={handleSave}>
+            {isEditMode ? "Guardar cambios" : "Guardar dirección"}
+          </Button>
         </div>
       )}
 
+      {/* Lista de direcciones */}
       {isLoading ? <div className="space-y-2">{[0,1].map(i => <div key={i} className="h-14 rounded-xl bg-secondary/40 shimmer" />)}</div> : addresses.length === 0 ? (
         <p className="py-4 text-center text-sm text-muted-foreground">No tienes direcciones guardadas</p>
       ) : (
@@ -246,7 +288,14 @@ function AddressesSection() {
                   <p className="text-sm font-semibold">{a.label}</p>
                   <p className="truncate text-xs text-muted-foreground">{a.street}{a.details ? ` · ${a.details}` : ""}</p>
                 </div>
-                <button onClick={() => { delMut.mutate(a.id); toast.success("Dirección eliminada"); }} className="text-muted-foreground hover:text-destructive"><Trash2 size={15} /></button>
+                {/* Botón Editar (lápiz) */}
+                <button onClick={() => openEdit(a)} className="text-muted-foreground transition hover:text-foreground" aria-label="Editar dirección">
+                  <Pencil size={14} />
+                </button>
+                {/* Botón Eliminar */}
+                <button onClick={() => { delMut.mutate(a.id); toast.success("Dirección eliminada"); }} className="text-muted-foreground transition hover:text-destructive" aria-label="Eliminar dirección">
+                  <Trash2 size={15} />
+                </button>
               </div>
             );
           })}

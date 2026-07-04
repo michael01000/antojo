@@ -16,10 +16,10 @@ export type CustomerView =
   | "community"
   | "groupOrder";
 
-export type RestaurantView = "orders" | "menu" | "analytics" | "promos" | "profile" | "boost";
+export type RestaurantView = "orders" | "menu" | "boost" | "earnings" | "analytics" | "profile";
 
 export type DriverView = "home" | "earnings" | "active";
-export type AdminView = "overview" | "orders" | "restaurants" | "drivers" | "revenue" | "promos";
+export type AdminView = "overview" | "orders" | "earnings" | "profitability" | "restaurants" | "drivers" | "promos";
 
 interface AuthUser {
   id: string; email: string; name: string; role: Role; avatarColor: string; phone: string | null; city: string; provider: string; verified: boolean; profileId: string | null;

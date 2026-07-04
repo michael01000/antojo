@@ -320,6 +320,10 @@ function DriverEarnings({ driver }: { driver: any }) {
   const week = [32000, 42500, 28000, 51000, 39500, 62000, 42500];
   const max = Math.max(...week);
   const days = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
+  const cashOwed = driver?.cashOwed ?? 0;
+  const cashLimit = 200000;
+  const cashBlocked = cashOwed >= cashLimit;
+  const cashPct = Math.min(100, (cashOwed / cashLimit) * 100);
   return (
     <div className="space-y-4">
       <Card className="p-5 text-white shadow-soft" style={{ background: "linear-gradient(135deg, var(--lima), oklch(0.5 0.12 160))" }}>
@@ -327,6 +331,42 @@ function DriverEarnings({ driver }: { driver: any }) {
         <p className="font-display text-4xl font-black">{cop(driver?.earningsToday ?? 42500)}</p>
         <p className="mt-1 flex items-center gap-1 text-sm opacity-90"><TrendingUp size={14} /> +12% vs ayer</p>
       </Card>
+
+      {/* ─── Efectivo por consignar (Ledger) ─── */}
+      <Card className={cn("overflow-hidden p-0 shadow-soft", cashBlocked && "ring-2 ring-red-500/40")}>
+        <div className="p-4" style={{ background: cashBlocked ? "oklch(0.65 0.22 25 / 0.08)" : "oklch(0.78 0.16 75 / 0.08)" }}>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="grid h-10 w-10 place-items-center rounded-xl text-white" style={{ background: cashBlocked ? "var(--antojo)" : "var(--mango)" }}>
+                <Wallet size={18} />
+              </div>
+              <div>
+                <p className="font-display text-sm font-bold">Efectivo por consignar</p>
+                <p className="text-[11px] text-muted-foreground">
+                  {cashBlocked ? "⚠️ Pedidos en efectivo bloqueados" : "Saldo pendiente con la plataforma"}
+                </p>
+              </div>
+            </div>
+            <p className="font-display text-xl font-black" style={{ color: cashBlocked ? "var(--antojo)" : "var(--cafe)" }}>{cop(cashOwed)}</p>
+          </div>
+          {/* Barra de progreso hacia el tope */}
+          <div className="mt-3">
+            <div className="mb-1 flex justify-between text-[10px] text-muted-foreground">
+              <span>$0</span>
+              <span>Tope: {cop(cashLimit)}</span>
+            </div>
+            <div className="h-2 overflow-hidden rounded-full bg-secondary">
+              <div className="h-full rounded-full transition-all" style={{ width: `${cashPct}%`, background: cashBlocked ? "var(--antojo)" : cashPct > 70 ? "var(--mango)" : "var(--lima)" }} />
+            </div>
+            {cashBlocked && (
+              <p className="mt-2 rounded-lg bg-antojo/10 p-2 text-[11px] font-semibold" style={{ background: "oklch(0.628 0.211 29 / 0.1)", color: "var(--antojo)" }}>
+                ⛔ Consigna tu saldo para volver a recibir pedidos en efectivo. Mientras tanto, solo recibirás pedidos digitales.
+              </p>
+            )}
+          </div>
+        </div>
+      </Card>
+
       <Card className="p-4 shadow-soft">
         <h3 className="mb-3 font-display font-bold">Esta semana</h3>
         <div className="flex h-32 items-end justify-between gap-2">

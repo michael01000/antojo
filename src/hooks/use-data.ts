@@ -322,6 +322,49 @@ export function useApprove() {
   });
 }
 
+// ---------- Admin Audit (rentabilidad + kill-switch) ----------
+export function useAdminAudit() {
+  return useQuery({
+    queryKey: ["admin-audit"],
+    queryFn: () => api.get<any>("/api/admin/audit"),
+    refetchInterval: 60000, // refresca cada minuto para monitoreo
+  });
+}
+export function useRefreshAudit() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.post<{ ok: boolean }>("/api/admin/audit"),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-audit"] }),
+  });
+}
+
+// ---------- Earnings (Restaurante + Admin) ----------
+export function useRestaurantEarnings() {
+  return useQuery({ queryKey: ["restaurant-earnings"], queryFn: () => api.get<any>("/api/restaurant/earnings") });
+}
+export function useAdminEarnings() {
+  return useQuery({ queryKey: ["admin-earnings"], queryFn: () => api.get<any>("/api/admin/earnings"), refetchInterval: 30000 });
+}
+export function useAdminProfitability() {
+  return useQuery({ queryKey: ["admin-profitability"], queryFn: () => api.get<any>("/api/admin/profitability"), refetchInterval: 30000 });
+}
+
+// ---------- Rewards (Coins) ----------
+export function useRedeemReward() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (rewardId: string) => api.post<{ ok: boolean; coupon: any; coinsRemaining: number; primeActivated: boolean }>("/api/rewards/redeem", { rewardId }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["loyalty"] });
+      qc.invalidateQueries({ queryKey: ["coupons"] });
+      qc.invalidateQueries({ queryKey: ["customer"] });
+    },
+  });
+}
+export function useMyCoupons() {
+  return useQuery({ queryKey: ["coupons"], queryFn: () => api.get<{ coupons: any[] }>("/api/rewards/coupons") });
+}
+
 // ---------- Social: Posts ----------
 export function usePostsFeed(tab: "following" | "explore" = "following") {
   return useQuery({
@@ -398,6 +441,13 @@ export function useAddAddress() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (body: any) => api.post<{ address: any }>("/api/addresses", body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["addresses"] }),
+  });
+}
+export function useUpdateAddress() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...body }: { id: string } & any) => api.patch<{ address: any }>(`/api/addresses/${id}`, body),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["addresses"] }),
   });
 }
