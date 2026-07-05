@@ -5,6 +5,7 @@ import { useApp } from "@/lib/store";
 import { useSocket } from "@/components/providers";
 import {
   useRestaurantOrders, useUpdateOrderStatus, useAllRestaurants, useToggleMenuItem, useRestaurant, useRegisterRestaurant, useLogout,
+  useCreateMenuItem, useUpdateMenuItem, useDeleteMenuItem,
 } from "@/hooks/use-data";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,9 +14,11 @@ import { OrderStatusBadge } from "@/components/shared/status-badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import {
   Receipt, UtensilsCrossed, BarChart3, Tag, Store, Clock, Check, ChefHat, Package,
   TrendingUp, Star, Plus, Flame, ArrowRight, DollarSign, ShoppingBag, LogOut,
+  Pencil, Trash2, X, MapPin, Bike,
 } from "lucide-react";
 import { cop, copShort, timeAgo } from "@/lib/format";
 import { toast } from "sonner";
@@ -101,7 +104,7 @@ function RestOrders({ orders, incoming, isLoading }: { orders: Order[]; incoming
                       <OrderStatusBadge status={o.status as OrderStatus} />
                       <span className="text-xs text-muted-foreground">{timeAgo(o.createdAt)}</span>
                     </div>
-                    <p className="mt-1 text-xs text-muted-foreground">📍 {o.address.split(",")[0]} · {o.paymentMethod}</p>
+                    <p className="mt-1 text-xs text-muted-foreground"><MapPin size={11} className="inline" /> {o.address.split(",")[0]} · {o.paymentMethod}</p>
                     <div className="mt-2 space-y-0.5">
                       {o.items.map(it => (
                         <div key={it.id} className="flex items-center gap-2 text-sm">
@@ -117,10 +120,10 @@ function RestOrders({ orders, incoming, isLoading }: { orders: Order[]; incoming
                 </div>
                 <Button className="mt-2.5 w-full rounded-xl" style={{ background: "var(--antojo)", color: "white" }}
                   disabled={updateStatus.isPending} onClick={() => advance(o)}>
-                  {o.status === "placed" && <>✓ Aceptar pedido <ArrowRight size={15} /></>}
-                  {o.status === "accepted" && <>👨‍🍳 Empezar a preparar <ArrowRight size={15} /></>}
-                  {o.status === "preparing" && <>🛍️ Marcar como listo <ArrowRight size={15} /></>}
-                  {o.status === "ready" && <>🏍️ Entregar al domiciliario <ArrowRight size={15} /></>}
+                  {o.status === "placed" && <><Check size={15} className="inline mr-1" /> Aceptar pedido <ArrowRight size={15} /></>}
+                  {o.status === "accepted" && <><ChefHat size={15} className="inline mr-1" /> Empezar a preparar <ArrowRight size={15} /></>}
+                  {o.status === "preparing" && <><ShoppingBag size={15} className="inline mr-1" /> Marcar como listo <ArrowRight size={15} /></>}
+                  {o.status === "ready" && <><Bike size={15} className="inline mr-1" /> Entregar al domiciliario <ArrowRight size={15} /></>}
                 </Button>
               </Card>
             ))}
@@ -161,26 +164,123 @@ function RestMenu({ restId }: { restId?: string }) {
   const [cat, setCat] = useState<string>("");
   const { data, isLoading } = useRestaurant(restId ?? null);
   const toggle = useToggleMenuItem();
+  const createMut = useCreateMenuItem();
+  const updateMut = useUpdateMenuItem();
+  const delMut = useDeleteMenuItem();
   const menu = data?.menu ?? {};
   const categories = Object.keys(menu);
   const items = cat ? menu[cat] ?? [] : Object.values(menu).flat();
+
+  // Form state para crear/editar
+  const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [fName, setFName] = useState("");
+  const [fDesc, setFDesc] = useState("");
+  const [fPrice, setFPrice] = useState("");
+  const [fCategory, setFCategory] = useState("");
+  const [fEmoji, setFEmoji] = useState("🍽️");
+  const [fCalories, setFCalories] = useState("");
+  const [fPrepMin, setFPrepMin] = useState("");
+
+  const isEditing = !!editingId;
+
+  const openCreate = () => {
+    setEditingId(null); setFName(""); setFDesc(""); setFPrice(""); setFCategory(""); setFEmoji("🍽️"); setFCalories(""); setFPrepMin("");
+    setShowForm(true);
+  };
+  const openEdit = (m: any) => {
+    setEditingId(m.id); setFName(m.name); setFDesc(m.description); setFPrice(String(m.price));
+    setFCategory(m.category); setFEmoji(m.emoji ?? "🍽️"); setFCalories(m.calories ? String(m.calories) : "");
+    setFPrepMin(m.prepMin ? String(m.prepMin) : ""); setShowForm(true);
+  };
+  const closeForm = () => { setShowForm(false); setEditingId(null); };
+
+  const handleSave = async () => {
+    if (!fName.trim() || !fDesc.trim() || !fPrice.trim() || !fCategory.trim()) {
+      toast.error("Completa nombre, descripción, precio y categoría"); return;
+    }
+    const body = {
+      name: fName, description: fDesc, price: parseInt(fPrice), category: fCategory,
+      emoji: fEmoji, calories: fCalories ? parseInt(fCalories) : null, prepMin: fPrepMin ? parseInt(fPrepMin) : null,
+    };
+    try {
+      if (isEditing) {
+        await updateMut.mutateAsync({ id: editingId!, ...body });
+        toast.success("Plato actualizado ✓");
+      } else {
+        await createMut.mutateAsync(body);
+        toast.success("Plato creado ✓");
+      }
+      closeForm();
+    } catch (e: any) { toast.error(e.message); }
+  };
+
+  const handleDelete = async (id: string, name: string) => {
+    try { await delMut.mutateAsync(id); toast.success(`"${name}" eliminado`); }
+    catch (e: any) { toast.error(e.message); }
+  };
 
   if (isLoading) return <div className="space-y-2">{[0,1,2].map(i => <Skeleton key={i} className="h-16 rounded-2xl" />)}</div>;
 
   return (
     <div className="space-y-3">
-      <div className="no-scrollbar flex gap-2 overflow-x-auto pb-1">
-        <button onClick={() => setCat("")} className={cn("rounded-full px-3 py-1.5 text-xs font-semibold", !cat ? "text-white" : "bg-secondary")}>Todos</button>
-        {categories.map(c => <button key={c} onClick={() => setCat(c)} className={cn("rounded-full px-3 py-1.5 text-xs font-semibold whitespace-nowrap", cat === c ? "text-white" : "bg-secondary")} style={cat === c ? { background: "var(--antojo)" } : undefined}>{c}</button>)}
+      <div className="flex items-center justify-between">
+        <div className="no-scrollbar flex gap-2 overflow-x-auto pb-1">
+          <button onClick={() => setCat("")} className={cn("rounded-full px-3 py-1.5 text-xs font-semibold", !cat ? "text-white" : "bg-secondary")} style={!cat ? { background: "var(--antojo)" } : undefined}>Todos</button>
+          {categories.map(c => <button key={c} onClick={() => setCat(c)} className={cn("rounded-full px-3 py-1.5 text-xs font-semibold whitespace-nowrap", cat === c ? "text-white" : "bg-secondary")} style={cat === c ? { background: "var(--antojo)" } : undefined}>{c}</button>)}
+        </div>
+        <Button size="sm" className="rounded-full gap-1 shrink-0" style={{ background: "var(--antojo)", color: "white" }} onClick={showForm ? closeForm : openCreate}>
+          {showForm ? <X size={14} /> : <Plus size={14} />} {showForm ? "Cancelar" : "Nuevo plato"}
+        </Button>
       </div>
+
+      {/* Formulario crear/editar */}
+      {showForm && (
+        <Card className="space-y-3 p-4 shadow-soft">
+          <h3 className="font-display font-bold">{isEditing ? "Editar plato" : "Nuevo plato"}</h3>
+          <div className="grid grid-cols-[60px_1fr] gap-2">
+            <Input value={fEmoji} onChange={(e) => setFEmoji(e.target.value)} className="h-10 text-center text-xl" maxLength={2} />
+            <Input value={fName} onChange={(e) => setFName(e.target.value)} placeholder="Nombre del plato" className="h-10" />
+          </div>
+          <Input value={fDesc} onChange={(e) => setFDesc(e.target.value)} placeholder="Descripción (ingredientes, tamaño, etc.)" className="h-10" />
+          <div className="grid grid-cols-2 gap-2">
+            <Input value={fPrice} onChange={(e) => setFPrice(e.target.value.replace(/\D/g, ""))} placeholder="Precio (COP)" className="h-10" />
+            <Input value={fCategory} onChange={(e) => setFCategory(e.target.value)} placeholder="Categoría (ej: Hamburguesas)" className="h-10" />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <Input value={fCalories} onChange={(e) => setFCalories(e.target.value.replace(/\D/g, ""))} placeholder="Calorías (opcional)" className="h-10" />
+            <Input value={fPrepMin} onChange={(e) => setFPrepMin(e.target.value.replace(/\D/g, ""))} placeholder="Min prep (opcional)" className="h-10" />
+          </div>
+          <Button className="w-full rounded-xl" style={{ background: "var(--antojo)", color: "white" }} disabled={createMut.isPending || updateMut.isPending} onClick={handleSave}>
+            {isEditing ? "Guardar cambios" : "Crear plato"}
+          </Button>
+        </Card>
+      )}
+
+      {/* Lista de items */}
       <div className="space-y-2">
+        {items.length === 0 && !showForm && (
+          <Card className="p-8 text-center text-sm text-muted-foreground shadow-soft">
+            <UtensilsCrossed size={28} className="mx-auto mb-2 opacity-50" />
+            No tienes platos en esta categoría. ¡Crea tu primer plato!
+          </Card>
+        )}
         {items.map((m: any) => (
           <Card key={m.id} className="flex items-center gap-3 p-3 shadow-soft">
             <div className="grid h-11 w-11 place-items-center rounded-xl bg-secondary text-2xl">{m.emoji ?? "🍽️"}</div>
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-semibold">{m.name} {m.isPopular && <Badge className="ml-1 h-4 text-[9px]" style={{ background: "var(--antojo)", color: "white" }}>TOP</Badge>}</p>
-              <p className="text-xs text-muted-foreground">{m.category} · {cop(m.price)}</p>
+              <p className="text-xs text-muted-foreground">{m.category} · {cop(m.price)}{m.calories ? ` · ${m.calories} cal` : ""}</p>
             </div>
+            {/* Editar */}
+            <button onClick={() => openEdit(m)} className="text-muted-foreground transition hover:text-foreground" aria-label="Editar">
+              <Pencil size={14} />
+            </button>
+            {/* Eliminar */}
+            <button onClick={() => handleDelete(m.id, m.name)} className="text-muted-foreground transition hover:text-destructive" aria-label="Eliminar">
+              <Trash2 size={15} />
+            </button>
+            {/* Toggle disponible */}
             <div className="flex items-center gap-2">
               <span className={cn("text-xs font-semibold", m.isAvailable ? "" : "text-muted-foreground")}>{m.isAvailable ? "Disponible" : "Agotado"}</span>
               <Switch checked={m.isAvailable} onCheckedChange={(v) => { toggle.mutate({ id: m.id, isAvailable: v }); toast(v ? "Producto disponible" : "Producto marcado como agotado"); }} />
@@ -214,7 +314,7 @@ function RestAnalytics({ orders, restaurant }: { orders: Order[]; restaurant: an
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         <KPI label="Ventas hoy" value={copShort(salesToday)} icon={DollarSign} color="var(--lima)" />
         <KPI label="Pedidos" value={`${delivered.length}`} icon={ShoppingBag} color="var(--antojo)" />
-        <KPI label="Rating" value={`${restaurant?.rating ?? 4.7}⭐`} icon={Star} color="var(--mango)" />
+        <KPI label="Rating" value={`${restaurant?.rating ?? 4.7}`} icon={Star} color="var(--mango)" />
         <KPI label="Ticket" value={copShort(Math.round(salesToday / Math.max(1,delivered.length)))} icon={TrendingUp} color="var(--mora)" />
       </div>
 
@@ -307,7 +407,7 @@ function RestProfile({ restaurant }: { restaurant: any }) {
               <p className="text-sm text-muted-foreground">{authUser?.email}</p>
             </div>
             {restaurant?.isApproved ? (
-              <span className="rounded-full px-2.5 py-1 text-xs font-bold text-white" style={{ background: "var(--lima)" }}>✓ Activo</span>
+              <span className="rounded-full px-2.5 py-1 text-xs font-bold text-white" style={{ background: "var(--lima)" }}><Check size={11} className="inline" /> Activo</span>
             ) : restaurant ? (
               <span className="rounded-full bg-amber-500/15 px-2.5 py-1 text-xs font-bold text-amber-600">En revisión</span>
             ) : null}
@@ -338,7 +438,7 @@ function RestProfile({ restaurant }: { restaurant: any }) {
           <div className="space-y-2 text-sm">
             <div className="flex justify-between"><span className="text-muted-foreground">Cocina</span><span className="font-semibold">{restaurant.cuisine}</span></div>
             <div className="flex justify-between"><span className="text-muted-foreground">Barrio</span><span className="font-semibold">{restaurant.neighborhood}</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">Rating</span><span className="font-semibold">⭐ {restaurant.rating}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Rating</span><span className="font-semibold"><Star size={12} className="inline" style={{ color: "var(--mango)" }} fill="var(--mango)" /> {restaurant.rating}</span></div>
             <div className="flex justify-between"><span className="text-muted-foreground">Envío</span><span className="font-semibold">{cop(restaurant.deliveryFee)}</span></div>
             <div className="flex justify-between"><span className="text-muted-foreground">Estado</span><span className="font-semibold">{restaurant.isOpen ? "Abierto" : "Cerrado"}</span></div>
           </div>

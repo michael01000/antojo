@@ -117,7 +117,7 @@ function SponsorPosts({ adsInfo }: { adsInfo: any }) {
           {posts.map((p: any) => (
             <div key={p.id} className="flex items-center gap-3 rounded-xl border border-border/60 p-2.5">
               <img src={p.imageUrl} alt="" className="h-12 w-12 rounded-lg object-cover" />
-              <div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold">{p.caption}</p><p className="text-xs text-muted-foreground">{p.isSponsored ? "🔥 Patrocinado" : timeAgo(p.createdAt)}</p></div>
+              <div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold">{p.caption}</p><p className="text-xs text-muted-foreground">{p.isSponsored ? <><Flame size={11} className="inline" style={{ color: "var(--mango)" }} /> Patrocinado</> : timeAgo(p.createdAt)}</p></div>
               <Button size="sm" variant="outline" className="rounded-full" disabled={!adsInfo?.canSponsor || p.isSponsored || sponsorMut.isPending} onClick={() => { sponsorMut.mutate(p.id); toast.success("Post patrocinado por 7 días 🔥"); }}>
                 {p.isSponsored ? "Activo" : "Patrocinar"}
               </Button>

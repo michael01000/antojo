@@ -1,0 +1,9 @@
+# Reglas y Arquitectura de Antojo App
+
+## Descripción General
+Este proyecto es una plataforma de delivery (Antojo App). Contiene módulos para la administración, lógica de comisiones de restaurantes, bonos de repartidores y el manejo de cuentas.
+
+## Directrices de Desarrollo
+- Analiza siempre el impacto económico en las comisiones y bonos antes de modificar la lógica del ledger o del panel administrativo.
+- Mantén un código modular y bien documentado en español.
+- Respeta la arquitectura de la base de datos existente.

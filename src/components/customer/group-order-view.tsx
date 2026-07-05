@@ -7,7 +7,7 @@ import { useRestaurant } from "@/hooks/use-data";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Users, Copy, Plus, Trash2, ShoppingCart, ChevronLeft, Share2, Check } from "lucide-react";
+import { Users, Copy, Plus, Trash2, ShoppingCart, ChevronLeft, Share2, Check, Wallet } from "lucide-react";
 import { cop } from "@/lib/format";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -164,6 +164,29 @@ function ActiveGroupOrder({ code }: { code: string }) {
             <ShoppingCart size={18} /> Pagar todo el pedido
           </Button>
           <p className="mt-1 text-center text-[11px] text-muted-foreground">Como host, pagas el pedido completo</p>
+        </Card>
+      )}
+
+      {/* Split Payment — Pagar mi parte */}
+      {!isHost && go.items.some(i => i.addedByName === authUser?.name) && (
+        <Card className="mt-4 p-4 shadow-soft">
+          <h3 className="mb-2 flex items-center gap-1.5 font-display font-bold"><Users size={16} style={{ color: "var(--mora)" }} /> Pagar mi parte (Split Payment)</h3>
+          <div className="space-y-1 text-sm">
+            <p className="text-muted-foreground">Tus items en este pedido grupal</p>
+            {go.items.filter(i => i.addedByName === authUser?.name).map((item: any) => (
+              <div key={item.id} className="flex justify-between"><span>{item.qty}× {item.name}</span><span>{cop(item.price * item.qty)}</span></div>
+            ))}
+          </div>
+          <Button className="mt-3 w-full rounded-xl py-3 text-base gap-2" style={{ background: "var(--mora)", color: "white" }}
+            onClick={async () => {
+              try {
+                const r = await fetch(`/api/group-orders/${go.code}/pay-share`, { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ paymentMethod: "Tarjeta" }) }).then(res => res.json());
+                if (r.ok) toast.success(r.allPaid ? "¡Todos pagaron! El host puede confirmar." : "Tu parte está paga. Esperando a los demás.");
+                else toast.error(r.error || "Error al pagar");
+              } catch { toast.error("Error al procesar el pago"); }
+            }}>
+            <Wallet size={18} /> Pagar mi parte
+          </Button>
         </Card>
       )}
     </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { Clock, Bike, Heart, UserPlus, UserCheck } from "lucide-react";
+import { Clock, Bike, Heart, UserPlus, UserCheck, Flame } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { StarRating, Price } from "./star-rating";
 import type { Restaurant } from "@/lib/types";
@@ -60,7 +60,7 @@ export function RestaurantCard({ r, onClick, className }: { r: any; onClick?: ()
         <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-transparent to-transparent" />
         {r.promo && (
           <span className="absolute left-2 top-2 rounded-full bg-mango px-2.5 py-1 text-[11px] font-bold shadow-soft" style={{ background: "var(--mango)", color: "var(--cafe)" }}>
-            🔥 {r.promo}
+            <Flame size={11} className="inline" /> {r.promo}
           </span>
         )}
         {authUser?.role === "cliente" && (

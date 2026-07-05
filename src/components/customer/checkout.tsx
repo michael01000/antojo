@@ -1,17 +1,18 @@
 "use client";
 
 import { useApp } from "@/lib/store";
-import { useCreateOrder, useValidatePromo, usePromotions, useCustomer } from "@/hooks/use-data";
+import { useCreateOrder, useValidatePromo, usePromotions, useCustomer, useAddresses, useAddAddress } from "@/hooks/use-data";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Price } from "@/components/shared/star-rating";
-import { ArrowLeft, Plus, Minus, Trash2, Tag, Clock, CreditCard, Wallet, Landmark, Check, MapPin, Users, Sparkles } from "lucide-react";
+import { ArrowLeft, Plus, Minus, Trash2, Tag, Clock, CreditCard, Wallet, Landmark, Check, MapPin, Users, Sparkles, X, Heart, ShoppingCart } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useSocket } from "@/components/providers";
 import { cop } from "@/lib/format";
+import { cn } from "@/lib/utils";
 
 const TIPS = [0, 2000, 3000, 5000];
 const PAYMENTS = [
@@ -31,22 +32,41 @@ export function Checkout() {
   const primeMember = useApp((s) => s.primeMember);
   const groupMode = useApp((s) => s.groupMode);
   const { data: profile } = useCustomer();
+  const { data: addressesData } = useAddresses();
+  const addAddrMut = useAddAddress();
   const { data: promos } = usePromotions();
   const validatePromo = useValidatePromo();
   const createOrder = useCreateOrder();
   const socket = useSocket();
 
-  const [address, setAddress] = useState(profile?.addresses?.[0]?.street ?? "Calle 72 #11-25, Chapinero, Apto 402");
+  const addresses = addressesData?.addresses ?? profile?.addresses ?? [];
+  const [address, setAddress] = useState(addresses[0]?.street ?? "Calle 72 #11-25, Chapinero, Apto 402");
   const [payment, setPayment] = useState(PAYMENTS[0].id);
   const [tip, setTip] = useState(2000);
   const [promoCode, setPromoCode] = useState("");
   const [applied, setApplied] = useState<{ code: string; discount: number; freeDelivery: boolean } | null>(null);
   const [notes, setNotes] = useState("");
 
+  // ─── Formulario inline de nueva dirección ───
+  const [showAddrForm, setShowAddrForm] = useState(false);
+  const [addrLabel, setAddrLabel] = useState("Casa");
+  const [addrStreet, setAddrStreet] = useState("");
+  const [addrDetails, setAddrDetails] = useState("");
+
+  const handleAddAddress = async () => {
+    if (!addrStreet.trim()) { toast.error("Escribe la dirección"); return; }
+    try {
+      await addAddrMut.mutateAsync({ label: addrLabel, street: addrStreet, details: addrDetails });
+      toast.success("Dirección guardada ✓");
+      setAddress(addrStreet); // seleccionar automáticamente la nueva
+      setAddrStreet(""); setAddrDetails(""); setShowAddrForm(false);
+    } catch (e: any) { toast.error(e.message); }
+  };
+
   if (cart.length === 0) {
     return (
       <div className="px-3 pt-10 text-center sm:px-5 lg:px-0">
-        <p className="text-5xl">🛒</p>
+        <ShoppingCart size={48} className="mx-auto mb-2 opacity-50" />
         <h2 className="mt-3 font-display text-xl font-bold">Tu carrito está vacío</h2>
         <p className="mt-1 text-sm text-muted-foreground">Añade platos de tus restaurantes favoritos.</p>
         <Button className="mt-4 rounded-full" style={{ background: "var(--antojo)", color: "white" }} onClick={() => setCustomerView("discover")}>Explorar restaurantes</Button>
@@ -151,11 +171,34 @@ export function Checkout() {
 
           {/* Address */}
           <Card className="p-4 shadow-soft">
-            <h3 className="mb-2 flex items-center gap-1.5 font-display font-bold"><MapPin size={16} style={{ color: "var(--antojo)" }} /> Dirección de entrega</h3>
+            <div className="mb-2 flex items-center justify-between">
+              <h3 className="flex items-center gap-1.5 font-display font-bold"><MapPin size={16} style={{ color: "var(--antojo)" }} /> Dirección de entrega</h3>
+              <Button size="sm" variant="outline" className="rounded-full gap-1" onClick={() => setShowAddrForm(!showAddrForm)}>
+                {showAddrForm ? <X size={13} /> : <Plus size={13} />} {showAddrForm ? "Cancelar" : "Nueva"}
+              </Button>
+            </div>
+
+            {/* Formulario inline de nueva dirección */}
+            {showAddrForm && (
+              <div className="mb-3 space-y-2 rounded-xl bg-secondary/40 p-3">
+                <div className="flex gap-2">
+                  {["Casa", "Trabajo", "Otra"].map((l) => (
+                    <button key={l} onClick={() => setAddrLabel(l)} className={cn("flex-1 rounded-lg py-1.5 text-xs font-semibold transition", addrLabel === l ? "text-white" : "bg-card")} style={addrLabel === l ? { background: "var(--antojo)" } : undefined}>{l}</button>
+                  ))}
+                </div>
+                <Input value={addrStreet} onChange={(e) => setAddrStreet(e.target.value)} placeholder="Ej: Calle 72 #11-25, Chapinero" className="h-10" />
+                <Input value={addrDetails} onChange={(e) => setAddrDetails(e.target.value)} placeholder="Detalles (apto, torre, instrucciones)" className="h-10" />
+                <Button className="w-full rounded-xl" style={{ background: "var(--antojo)", color: "white" }} disabled={addAddrMut.isPending} onClick={handleAddAddress}>
+                  Guardar y usar esta dirección
+                </Button>
+              </div>
+            )}
+
+            {/* Lista de direcciones guardadas */}
             <div className="space-y-2">
-              {(profile?.addresses ?? [{ label: "Casa", street: "Calle 72 #11-25, Chapinero, Apto 402" }]).map((a: any) => (
+              {(addresses.length > 0 ? addresses : [{ label: "Casa", street: "Calle 72 #11-25, Chapinero, Apto 402" }]).map((a: any) => (
                 <button key={a.id ?? a.label} onClick={() => setAddress(a.street)}
-                  className={`flex w-full items-center justify-between rounded-xl border p-2.5 text-left text-sm transition ${address === a.street ? "border-antojo bg-antojo/5" : "border-border/60"}`}
+                  className={cn("flex w-full items-center justify-between rounded-xl border p-2.5 text-left text-sm transition", address === a.street ? "" : "border-border/60")}
                   style={address === a.street ? { borderColor: "var(--antojo)", background: "oklch(0.628 0.211 29 / 0.06)" } : undefined}>
                   <span>
                     <span className="font-semibold">{a.label}</span> · {a.street}
@@ -193,7 +236,7 @@ export function Checkout() {
             <h3 className="mb-2 flex items-center gap-1.5 font-display font-bold"><Tag size={16} style={{ color: "var(--mango)" }} /> Código promocional</h3>
             {applied ? (
               <div className="flex items-center justify-between rounded-xl border p-2.5" style={{ borderColor: "var(--lima)", background: "oklch(0.72 0.17 145 / 0.08)" }}>
-                <span className="text-sm font-bold" style={{ color: "var(--lima)" }}>✓ {applied.code}</span>
+                <span className="text-sm font-bold" style={{ color: "var(--lima)" }}><Check size={14} className="inline mr-1" style={{ color: "var(--lima)" }} /> {applied.code}</span>
                 <span className="text-sm font-bold" style={{ color: "var(--lima)" }}>-<Price value={applied.discount} /></span>
                 <button className="text-xs text-muted-foreground underline" onClick={() => setApplied(null)}>quitar</button>
               </div>
@@ -212,7 +255,7 @@ export function Checkout() {
 
           {/* Tip */}
           <Card className="p-4 shadow-soft">
-            <h3 className="mb-2 flex items-center gap-1.5 font-display font-bold">💚 Propina para el domiciliario</h3>
+            <h3 className="mb-2 flex items-center gap-1.5 font-display font-bold"><Heart size={16} style={{ color: "var(--lima)" }} /> Propina para el domiciliario</h3>
             <div className="grid grid-cols-4 gap-2">
               {TIPS.map((t) => (
                 <button key={t} onClick={() => setTip(t)}
@@ -252,6 +295,18 @@ export function Checkout() {
               {createOrder.isPending ? "Procesando…" : `Pagar ${cop(total)}`}
             </Button>
             <p className="mt-2 text-center text-[11px] text-muted-foreground">Pago seguro encriptado SSL · Pago contra entrega disponible</p>
+
+            {/* Eco-Antojo */}
+            <div className="mt-3 flex items-center justify-center gap-2 rounded-xl bg-lima/5 p-2.5 text-xs text-muted-foreground" style={{ background: "oklch(0.72 0.17 145 / 0.06)" }}>
+              <span className="text-base">🌳</span>
+              <span>Esta entrega a domicilio ahorra ~2.3kg de CO₂ vs manejar tú mismo</span>
+            </div>
+
+            {/* Antojo Wallet (opcional) */}
+            <div className="mt-2 flex items-center justify-between rounded-xl bg-secondary/40 p-2.5 text-xs">
+              <span className="flex items-center gap-1.5"><Wallet size={14} style={{ color: "var(--mango)" }} /> Antojo Wallet</span>
+              <span className="text-muted-foreground">Próximamente: paga con saldo y gana cashback</span>
+            </div>
           </Card>
         </div>
       </div>

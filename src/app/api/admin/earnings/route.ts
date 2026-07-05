@@ -26,9 +26,12 @@ export async function GET() {
   const startToday = new Date(); startToday.setHours(0, 0, 0, 0);
   const start7dAgo = new Date(); start7dAgo.setDate(start7dAgo.getDate() - 6); start7dAgo.setHours(0, 0, 0, 0);
 
-  // ─── Query única: órdenes entregadas de 7 días con restaurante ───
+  // Estados que generan ingreso (el cliente ya pagó aunque no se haya entregado)
+  const REVENUE_STATUSES = ["delivered", "en_route", "picked_up", "ready", "preparing", "accepted", "placed"];
+
+  // ─── Query única: órdenes con ingresos de 7 días con restaurante ───
   const orders7d = await db.order.findMany({
-    where: { status: "delivered", createdAt: { gte: start7dAgo } },
+    where: { status: { in: REVENUE_STATUSES }, createdAt: { gte: start7dAgo } },
     select: {
       subtotal: true, total: true, createdAt: true, code: true, paymentMethod: true,
       restaurantId: true,

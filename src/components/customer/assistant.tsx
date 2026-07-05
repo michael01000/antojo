@@ -1,12 +1,15 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { useAIChat } from "@/hooks/use-data";
+import { useAIChat, useComboBuilder } from "@/hooks/use-data";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Sparkles, Send, Wand2 } from "lucide-react";
+import { Sparkles, Send, Wand2, ShoppingCart } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useApp } from "@/lib/store";
+import { toast } from "sonner";
+import { cop } from "@/lib/format";
 
 const SUGGESTIONS = [
   "¿Qué me recomiendas para almorzar hoy?",
@@ -54,6 +57,9 @@ export function Assistant() {
           <p className="text-xs text-muted-foreground">Tu asistente de antojos · responde en segundos</p>
         </div>
       </div>
+
+      {/* ─── Combo Builder AI ─── */}
+      <ComboBuilder />
 
       <Card className="flex flex-1 flex-col overflow-hidden shadow-soft">
         <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto p-4 scrollbar-thin">
@@ -104,5 +110,71 @@ export function Assistant() {
         </div>
       </Card>
     </div>
+  );
+}
+
+function ComboBuilder() {
+  const comboMut = useComboBuilder();
+  const addToCart = useApp((s) => s.addToCart);
+  const setCustomerView = useApp((s) => s.setCustomerView);
+  const [budget, setBudget] = useState("50000");
+  const [people, setPeople] = useState("1");
+  const [pref, setPref] = useState("");
+  const [result, setResult] = useState<any>(null);
+
+  const build = async () => {
+    try {
+      const r = await comboMut.mutateAsync({ budget: parseInt(budget), people: parseInt(people), preference: pref });
+      setResult(r);
+    } catch (e: any) { toast.error(e.message); }
+  };
+
+  const addAll = () => {
+    if (!result?.combo) return;
+    result.combo.forEach((item: any) => {
+      addToCart({ menuItemId: item.id, name: item.name, emoji: item.emoji, price: item.price, qty: 1, restaurantId: "", restaurantName: item.restaurant });
+    });
+    toast.success(`¡Combo de ${result.combo.length} items añadido al carrito! 🛒`);
+    setCustomerView("checkout");
+  };
+
+  return (
+    <Card className="p-4 shadow-soft">
+      <h3 className="mb-3 flex items-center gap-1.5 font-display font-bold">
+        <Wand2 size={16} style={{ color: "var(--lima)" }} /> Combo Builder AI
+      </h3>
+      <p className="mb-3 text-xs text-muted-foreground">Arma un combo completo dentro de tu presupuesto</p>
+      <div className="mb-3 grid grid-cols-3 gap-2">
+        <Input value={budget} onChange={(e) => setBudget(e.target.value.replace(/\D/g, ""))} placeholder="Presupuesto" className="h-9" />
+        <Input value={people} onChange={(e) => setPeople(e.target.value.replace(/\D/g, ""))} placeholder="Personas" className="h-9" />
+        <Input value={pref} onChange={(e) => setPref(e.target.value)} placeholder="Preferencia" className="h-9" />
+      </div>
+      <Button className="w-full rounded-xl" style={{ background: "var(--lima)", color: "white" }} disabled={comboMut.isPending} onClick={build}>
+        {comboMut.isPending ? "Armando combo..." : "Armar combo con IA"}
+      </Button>
+      {result && (
+        <div className="mt-3 space-y-2 rounded-xl bg-secondary/40 p-3">
+          {result.reason && <p className="text-xs italic text-muted-foreground">{result.reason}</p>}
+          {result.combo?.map((item: any, i: number) => (
+            <div key={i} className="flex items-center gap-2 text-sm">
+              <span className="text-lg">{item.emoji ?? "🍽️"}</span>
+              <span className="flex-1 truncate">{item.name}</span>
+              <span className="text-xs text-muted-foreground truncate">{item.restaurant}</span>
+              <span className="font-bold">{cop(item.price)}</span>
+            </div>
+          ))}
+          {result.total != null && (
+            <>
+              <div className="flex justify-between border-t border-border/40 pt-2 text-sm font-bold">
+                <span>Total</span><span style={{ color: "var(--lima)" }}>{cop(result.total)}</span>
+              </div>
+              <Button className="w-full rounded-xl gap-2" style={{ background: "var(--antojo)", color: "white" }} onClick={addAll}>
+                <ShoppingCart size={15} /> Agregar todo al carrito
+              </Button>
+            </>
+          )}
+        </div>
+      )}
+    </Card>
   );
 }

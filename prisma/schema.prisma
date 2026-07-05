@@ -48,6 +48,9 @@ model Customer {
   postLikes   PostLike[]
   storyViews  StoryView[]
   groupOrders GroupOrder[] @relation("GroupOrderHost")
+  // Fase 2: Programa de Referidos
+  referralCode     String?  @unique
+  referredByCode   String?  // código de quien lo refirió
 }
 
 model Address {
@@ -93,6 +96,7 @@ model Restaurant {
   follows      Follow[]
   posts        Post[]
   stories      Story[]
+  chefDrops    ChefDrop[]
   // Antojo Ads + monetización
   adsPlan       String   @default("free") // free | pro | premium
   adsRenewsAt   DateTime?
@@ -187,6 +191,12 @@ model Order {
   driverLng    Float          @default(-74.0579)
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
+  // Fase 2: Programar pedidos
+  scheduledFor DateTime?
+  // Fase 3: Propina post-entrega
+  tipPostDelivery Int         @default(0)
+  // Fase 4: Mood ordering
+  mood         String?        // happy | tired | sick | healthy | celebratory
   customer     Customer       @relation("CustomerOrders", fields: [customerId], references: [id])
   restaurant   Restaurant     @relation(fields: [restaurantId], references: [id])
   driver       Driver?        @relation(fields: [driverId], references: [id])
@@ -222,10 +232,15 @@ model Review {
   comment       String?
   foodRating    Int?
   deliveryRating Int?
+  photoUrl      String?
   at            DateTime @default(now())
+  // Fase 2: Respuesta del restaurante
+  restaurantReply     String?
+  restaurantReplyAt   DateTime?
   customer      Customer @relation(fields: [customerId], references: [id])
   restaurant    Restaurant @relation(fields: [restaurantId], references: [id])
   order         Order    @relation(fields: [orderId], references: [id])
+  photos        ReviewPhoto[]
 }
 
 model LoyaltyAccount {
@@ -371,4 +386,108 @@ model Notification {
   orderId   String?
   createdAt DateTime @default(now())
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  FEATURES INNOVADORAS
+// ═══════════════════════════════════════════════════════════════════
+
+// ─── Antojo Wallet (billetera digital) ───
+model Wallet {
+  id          String   @id @default(cuid())
+  customerId  String   @unique
+  balance     Int      @default(0)
+  createdAt   DateTime @default(now())
+  transactions WalletTransaction[]
+}
+
+model WalletTransaction {
+  id          String   @id @default(cuid())
+  walletId    String
+  type        String   // topup | purchase | cashback | bonus
+  amount      Int      // positivo = entra, negativo = sale
+  description String
+  orderId     String?
+  createdAt   DateTime @default(now())
+  wallet      Wallet   @relation(fields: [walletId], references: [id], onDelete: Cascade)
+}
+
+// ─── Chef's Drops (platos edición limitada) ───
+model ChefDrop {
+  id            String   @id @default(cuid())
+  restaurantId  String
+  menuItemId    String
+  name          String
+  description   String
+  emoji         String
+  price         Int
+  stock         Int
+  sold          Int      @default(0)
+  expiresAt     DateTime
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  restaurant    Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+}
+
+// ─── Reseña con foto ───
+model ReviewPhoto {
+  id          String   @id @default(cuid())
+  reviewId    String
+  imageUrl    String
+  createdAt   DateTime @default(now())
+  review      Review   @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+}
+
+// ─── Misión Diaria ───
+model DailyMission {
+  id          String   @id @default(cuid())
+  customerId  String
+  date        DateTime
+  type        String   // veggie | new_restaurant | reorder | streak | spicy
+  title       String
+  description String
+  icon        String
+  reward      Int      // coins
+  completed   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+}
+
+// ─── Domiciliario del Mes (leaderboard) ───
+model DriverLeaderboard {
+  id            String   @id @default(cuid())
+  driverId      String
+  month         String   // "2025-07"
+  deliveries    Int      @default(0)
+  rating        Float    @default(0)
+  earnings      Int      @default(0)
+  bonusEarned   Int      @default(0)
+}
+
+// ─── Antojo For Business ───
+model BusinessAccount {
+  id            String   @id @default(cuid())
+  companyName   String
+  contactEmail  String   @unique
+  stipendPerEmployee Int  @default(200000) // mensual
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  employees     BusinessEmployee[]
+}
+
+model BusinessEmployee {
+  id            String   @id @default(cuid())
+  businessId    String
+  userId        String   @unique
+  monthlyStipend Int     @default(200000)
+  usedThisMonth  Int      @default(0)
+  business      BusinessAccount @relation(fields: [businessId], references: [id], onDelete: Cascade)
+}
+
+// ─── Eco-Antojo (huella de carbono) ───
+model EcoStat {
+  id            String   @id @default(cuid())
+  orderId       String   @unique
+  co2SavedKg    Float    @default(0) // CO2 ahorrado vs manejar
+  treesAccumulated Int   @default(0)
+  createdAt     DateTime @default(now())
 }

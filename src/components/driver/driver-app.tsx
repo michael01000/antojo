@@ -4,7 +4,7 @@ import { useEffect, useRef } from "react";
 import { useApp } from "@/lib/store";
 import { useSocket } from "@/components/providers";
 import {
-  useDriverOrders, useAcceptOrder, useToggleDriverOnline, useCompleteDelivery, useUpdateOrderStatus, useOrderMessages, useSendMessage, useOnboardDriver, useLogout,
+  useDriverOrders, useAcceptOrder, useToggleDriverOnline, useCompleteDelivery, useUpdateOrderStatus, useOrderMessages, useSendMessage, useOnboardDriver, useLogout, useDriverLeaderboard,
 } from "@/hooks/use-data";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,7 @@ import { Price } from "@/components/shared/star-rating";
 import {
   Power, Bike, Star, Wallet, TrendingUp, Navigation, MapPin, Clock, Package,
   CheckCircle2, Phone, Send, ArrowRight, Zap, Trophy, ChevronRight, MessageCircle, LogOut,
+  Check, AlertTriangle, Ban, ClipboardList,
 } from "lucide-react";
 import { cop, copShort } from "@/lib/format";
 import { toast } from "sonner";
@@ -53,7 +54,7 @@ export function DriverApp() {
       {/* Status header */}
       <div className="mb-4 flex items-center justify-between gap-3">
         <div>
-          <h1 className="font-display text-2xl font-extrabold tracking-tight">Hola, {driver?.name?.split(" ")[0] ?? "Andrés"} 🏍️</h1>
+          <h1 className="font-display text-2xl font-extrabold tracking-tight">Hola, {driver?.name?.split(" ")[0] ?? "Andrés"}</h1>
           <p className="text-sm text-muted-foreground">{online ? "Estás en línea" : "Estás fuera de línea"} · {driver?.vehicle}</p>
         </div>
         <button onClick={toggleOnline}
@@ -135,7 +136,7 @@ function DriverHome({ online, available, active, isLoading, setView }: any) {
                       <OrderStatusBadge status={o.status as OrderStatus} />
                     </div>
                     <p className="mt-0.5 truncate text-sm font-semibold">{o.restaurant?.name}</p>
-                    <p className="truncate text-xs text-muted-foreground">📍 {o.restaurant?.neighborhood} → {o.address.split(",")[0]}</p>
+                    <p className="truncate text-xs text-muted-foreground"><MapPin size={11} className="inline" /> {o.restaurant?.neighborhood} → {o.address.split(",")[0]}</p>
                     <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
                       <span className="flex items-center gap-0.5"><Package size={11} /> {o.items.length} items</span>
                       <span className="flex items-center gap-0.5"><Clock size={11} /> {o.etaMin} min</span>
@@ -271,8 +272,8 @@ function DriverActive({ order, setView }: { order: Order | null; setView: (v: an
       {order.status !== "delivered" && (
         <Button className="w-full rounded-xl py-4 text-base shadow-glow" style={{ background: "var(--lima)", color: "white" }}
           disabled={updateStatus.isPending || complete.isPending} onClick={goNext}>
-          {order.status === "picked_up" && <>📍 Iniciar ruta al cliente <ArrowRight size={18} /></>}
-          {order.status === "en_route" && <>✅ Confirmar entrega <CheckCircle2 size={18} /></>}
+          {order.status === "picked_up" && <><Navigation size={16} className="inline mr-1" /> Iniciar ruta al cliente <ArrowRight size={18} /></>}
+          {order.status === "en_route" && <>Confirmar entrega <CheckCircle2 size={18} /></>}
         </Button>
       )}
 
@@ -324,12 +325,108 @@ function DriverEarnings({ driver }: { driver: any }) {
   const cashLimit = 200000;
   const cashBlocked = cashOwed >= cashLimit;
   const cashPct = Math.min(100, (cashOwed / cashLimit) * 100);
+
+  // ─── Datos reales del driver ───
+  const earningsToday = driver?.earningsToday ?? 0;
+  const completedToday = driver?.completedToday ?? 0;
+  const bonusEarnedToday = driver?.bonusEarnedToday ?? 0;
+  const lastBonusTier = driver?.lastBonusTier ?? 0;
+  const baseEarning = 4500; // ganancia base por entrega
+  const basePayToday = completedToday * baseEarning; // lo que ganó en base (sin bonos)
+  const rating = driver?.rating ?? 4.9;
+  const totalDeliveries = driver?.totalDeliveries ?? 128;
+
+  // ─── Sistema de bonos (espejo de economics.ts DRIVER_BONUS_TIERS) ───
+  const BONUS_TIERS = [
+    { tier: 5, bonus: 2000, label: "5 entregas", emoji: "🥉" },
+    { tier: 10, bonus: 5000, label: "10 entregas", emoji: "🥈" },
+    { tier: 15, bonus: 10000, label: "15 entregas", emoji: "🥇" },
+  ];
+
+  // Encontrar el próximo tier a alcanzar
+  const nextTier = BONUS_TIERS.find(t => t.tier > completedToday) ?? null;
+  const currentTierIdx = BONUS_TIERS.findIndex(t => t.tier === lastBonusTier);
+  const progressToNext = nextTier
+    ? Math.min(100, (completedToday / nextTier.tier) * 100)
+    : 100;
+
   return (
     <div className="space-y-4">
+      {/* ─── Ganancias de hoy (total) ─── */}
       <Card className="p-5 text-white shadow-soft" style={{ background: "linear-gradient(135deg, var(--lima), oklch(0.5 0.12 160))" }}>
         <p className="text-sm opacity-90">Ganancias de hoy</p>
-        <p className="font-display text-4xl font-black">{cop(driver?.earningsToday ?? 42500)}</p>
-        <p className="mt-1 flex items-center gap-1 text-sm opacity-90"><TrendingUp size={14} /> +12% vs ayer</p>
+        <p className="font-display text-4xl font-black">{cop(earningsToday)}</p>
+        <p className="mt-1 flex items-center gap-1 text-sm opacity-90"><TrendingUp size={14} /> {completedToday} entregas completadas</p>
+      </Card>
+
+      {/* ─── Desglose de hoy: base + bonos = total ─── */}
+      <Card className="p-4 shadow-soft">
+        <h3 className="mb-3 font-display font-bold">Desglose de hoy</h3>
+        <div className="space-y-2 text-sm">
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Ganancia base ({completedToday} × {cop(baseEarning)})</span>
+            <span className="font-semibold">{cop(basePayToday)}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Bonos por incentivos</span>
+            <span className="font-semibold" style={{ color: bonusEarnedToday > 0 ? "var(--mango)" : "var(--muted-foreground)" }}>{cop(bonusEarnedToday)}</span>
+          </div>
+          <div className="flex justify-between border-t border-border/60 pt-2 text-base font-extrabold">
+            <span>Total ganado</span>
+            <span style={{ color: "var(--lima)" }}>{cop(earningsToday)}</span>
+          </div>
+        </div>
+      </Card>
+
+      {/* ─── Sistema de bonos (gamificación) ─── */}
+      <Card className="p-4 shadow-soft">
+        <h3 className="mb-3 flex items-center gap-1.5 font-display font-bold">
+          <Trophy size={16} style={{ color: "var(--mango)" }} /> Sistema de bonos
+        </h3>
+
+        {/* Progreso hacia el próximo tier */}
+        {nextTier ? (
+          <div className="mb-4 rounded-xl bg-secondary/40 p-3">
+            <div className="mb-1.5 flex items-center justify-between text-sm">
+              <span className="font-semibold">Próximo bono: {nextTier.emoji} {nextTier.label}</span>
+              <span className="text-muted-foreground">{completedToday}/{nextTier.tier} entregas</span>
+            </div>
+            <div className="h-3 overflow-hidden rounded-full bg-secondary">
+              <div className="h-full rounded-full transition-all" style={{ width: `${progressToNext}%`, background: "linear-gradient(90deg, var(--lima), var(--mango))" }} />
+            </div>
+            <p className="mt-1.5 text-xs text-muted-foreground">
+              Te faltan <b style={{ color: "var(--mango)" }}>{nextTier.tier - completedToday}</b> entregas para ganar <b style={{ color: "var(--mango)" }}>{cop(nextTier.bonus)}</b> extra
+            </p>
+          </div>
+        ) : (
+          <div className="mb-4 rounded-xl bg-secondary/40 p-3 text-center">
+            <p className="text-sm font-bold" style={{ color: "var(--mango)" }}><Trophy size={16} className="inline" style={{ color: "var(--mango)" }} /> ¡Máximo tier alcanzado! (+{cop(10000)} ganados hoy)</p>
+          </div>
+        )}
+
+        {/* Los 3 tiers */}
+        <div className="grid grid-cols-3 gap-2">
+          {BONUS_TIERS.map((t, i) => {
+            const achieved = completedToday >= t.tier;
+            const claimed = lastBonusTier >= t.tier;
+            return (
+              <div key={t.tier} className={cn("rounded-xl border p-3 text-center transition", achieved ? "" : "border-border/60 opacity-50")} style={achieved ? { borderColor: "var(--mango)", background: "oklch(0.78 0.16 75 / 0.06)" } : undefined}>
+                <p className="text-2xl">{t.emoji}</p>
+                <p className="mt-1 text-xs font-bold">{t.tier} entregas</p>
+                <p className="text-xs font-semibold" style={{ color: "var(--mango)" }}>+{cop(t.bonus)}</p>
+                {claimed && <p className="mt-0.5 text-[9px] font-bold" style={{ color: "var(--lima)" }}><Check size={9} className="inline" /> Cobrado</p>}
+                {achieved && !claimed && <p className="mt-0.5 text-[9px] font-bold" style={{ color: "var(--antojo)" }}>¡Alcanzado!</p>}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Explicación */}
+        <div className="mt-3 rounded-lg bg-secondary/30 p-3 text-[11px] text-muted-foreground">
+          <p className="font-semibold text-foreground">¿Cómo funcionan los bonos?</p>
+          <p className="mt-1">Por cada entrega recibes <b>{cop(baseEarning)}</b> de ganancia base. Al alcanzar 5, 10 o 15 entregas en el día, recibes un bono extra acumulativo. ¡Más entregas, más ganancias!</p>
+          <p className="mt-1">Los bonos se pausan automáticamente si el margen de la plataforma cae debajo del 40% (kill-switch de seguridad).</p>
+        </div>
       </Card>
 
       {/* ─── Efectivo por consignar (Ledger) ─── */}
@@ -343,13 +440,12 @@ function DriverEarnings({ driver }: { driver: any }) {
               <div>
                 <p className="font-display text-sm font-bold">Efectivo por consignar</p>
                 <p className="text-[11px] text-muted-foreground">
-                  {cashBlocked ? "⚠️ Pedidos en efectivo bloqueados" : "Saldo pendiente con la plataforma"}
+                  {cashBlocked ? <><AlertTriangle size={11} className="inline" /> Pedidos en efectivo bloqueados</> : "Saldo pendiente con la plataforma"}
                 </p>
               </div>
             </div>
             <p className="font-display text-xl font-black" style={{ color: cashBlocked ? "var(--antojo)" : "var(--cafe)" }}>{cop(cashOwed)}</p>
           </div>
-          {/* Barra de progreso hacia el tope */}
           <div className="mt-3">
             <div className="mb-1 flex justify-between text-[10px] text-muted-foreground">
               <span>$0</span>
@@ -360,13 +456,14 @@ function DriverEarnings({ driver }: { driver: any }) {
             </div>
             {cashBlocked && (
               <p className="mt-2 rounded-lg bg-antojo/10 p-2 text-[11px] font-semibold" style={{ background: "oklch(0.628 0.211 29 / 0.1)", color: "var(--antojo)" }}>
-                ⛔ Consigna tu saldo para volver a recibir pedidos en efectivo. Mientras tanto, solo recibirás pedidos digitales.
+                <Ban size={11} className="inline" /> Consigna tu saldo para volver a recibir pedidos en efectivo. Mientras tanto, solo recibirás pedidos digitales.
               </p>
             )}
           </div>
         </div>
       </Card>
 
+      {/* ─── Gráfico semanal ─── */}
       <Card className="p-4 shadow-soft">
         <h3 className="mb-3 font-display font-bold">Esta semana</h3>
         <div className="flex h-32 items-end justify-between gap-2">
@@ -382,11 +479,51 @@ function DriverEarnings({ driver }: { driver: any }) {
           <span className="font-bold">{cop(week.reduce((a,b)=>a+b,0))}</span>
         </div>
       </Card>
+
+      {/* ─── Stats ─── */}
       <div className="grid grid-cols-2 gap-2">
-        <Card className="p-3 shadow-soft"><Trophy size={16} style={{ color: "var(--mango)" }} /><p className="mt-1 font-display text-lg font-extrabold">128</p><p className="text-[11px] text-muted-foreground">Entregas totales</p></Card>
-        <Card className="p-3 shadow-soft"><Star size={16} style={{ color: "var(--mango)" }} /><p className="mt-1 font-display text-lg font-extrabold">4.9</p><p className="text-[11px] text-muted-foreground">Calificación</p></Card>
+        <Card className="p-3 shadow-soft"><Trophy size={16} style={{ color: "var(--mango)" }} /><p className="mt-1 font-display text-lg font-extrabold">{totalDeliveries}</p><p className="text-[11px] text-muted-foreground">Entregas totales</p></Card>
+        <Card className="p-3 shadow-soft"><Star size={16} style={{ color: "var(--mango)" }} /><p className="mt-1 font-display text-lg font-extrabold">{rating}</p><p className="text-[11px] text-muted-foreground">Calificación</p></Card>
       </div>
+
+      {/* ─── Domiciliario del Mes (Leaderboard) ─── */}
+      <DriverLeaderboard driverId={driver?.id} />
     </div>
+  );
+}
+
+function DriverLeaderboard({ driverId }: { driverId?: string }) {
+  const { data } = useDriverLeaderboard();
+  const leaderboard = data?.leaderboard ?? [];
+  if (leaderboard.length === 0) return null;
+
+  return (
+    <Card className="p-4 shadow-soft">
+      <h3 className="mb-3 flex items-center gap-1.5 font-display font-bold">
+        <Trophy size={16} style={{ color: "var(--mango)" }} /> Domiciliario del Mes
+      </h3>
+      <div className="space-y-1.5">
+        {leaderboard.slice(0, 5).map((d: any) => (
+          <div key={d.id} className={cn("flex items-center gap-2.5 rounded-lg p-2", d.id === driverId && "bg-antojo/5")} style={d.id === driverId ? { background: "oklch(0.628 0.211 29 / 0.06)" } : undefined}>
+            <span className={cn("grid h-7 w-7 place-items-center rounded-full text-xs font-black", d.rank <= 3 ? "text-white" : "bg-secondary text-muted-foreground")} style={d.rank === 1 ? { background: "var(--mango)" } : d.rank === 2 ? { background: "var(--cafe)" } : d.rank === 3 ? { background: "var(--antojo)" } : undefined}>{d.rank}</span>
+            <div className="grid h-8 w-8 place-items-center rounded-full text-white text-xs font-bold" style={{ background: `var(--${d.avatarColor})` }}>{d.name.split(" ").slice(0,2).map((n:string)=>n[0]).join("")}</div>
+            <div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold">{d.name} {d.id === driverId && <span className="text-[10px]" style={{ color: "var(--antojo)" }}>(tú)</span>}</p></div>
+            <span className="text-xs text-muted-foreground">{d.completedToday} hoy</span>
+            {d.isTop3 && <span className="text-xs font-bold" style={{ color: "var(--mango)" }}>+{copShort(d.bonus)}</span>}
+          </div>
+        ))}
+      </div>
+      {data?.prizes && (
+        <div className="mt-3 grid grid-cols-3 gap-2 border-t border-border/40 pt-3 text-center">
+          {data.prizes.map((p: any) => (
+            <div key={p.rank}>
+              <p className="text-sm">{p.label}</p>
+              <p className="text-xs font-bold" style={{ color: "var(--mango)" }}>{copShort(p.bonus)}</p>
+            </div>
+          ))}
+        </div>
+      )}
+    </Card>
   );
 }
 
@@ -418,7 +555,7 @@ function DriverProfile({ driver }: { driver: any }) {
               <p className="text-sm text-muted-foreground">{authUser?.email}</p>
             </div>
             {driver?.isVerified ? (
-              <span className="rounded-full px-2.5 py-1 text-xs font-bold text-white" style={{ background: "var(--lima)" }}>✓ Verificado</span>
+              <span className="rounded-full px-2.5 py-1 text-xs font-bold text-white" style={{ background: "var(--lima)" }}><Check size={11} className="inline" /> Verificado</span>
             ) : (
               <span className="rounded-full bg-amber-500/15 px-2.5 py-1 text-xs font-bold text-amber-600">Pendiente verificación</span>
             )}
@@ -442,7 +579,7 @@ function DriverProfile({ driver }: { driver: any }) {
             <Input value={plate} onChange={(e) => setPlate(e.target.value.toUpperCase())} placeholder="Ej: ABC12D" className="h-10 uppercase" />
           </label>
           <div className="rounded-xl bg-secondary/40 p-3 text-xs text-muted-foreground">
-            📋 Documentos requeridos: Licencia de conducción, cédula, SOAT y RTP. Un administrador revisará tu solicitud.
+            <ClipboardList size={12} className="inline" /> Documentos requeridos: Licencia de conducción, cédula, SOAT y RTP. Un administrador revisará tu solicitud.
           </div>
           <Button className="w-full rounded-xl" style={{ background: "var(--lima)", color: "white" }} disabled={onboard.isPending} onClick={submit}>
             {onboard.isPending ? "Enviando…" : "Enviar para verificación"}

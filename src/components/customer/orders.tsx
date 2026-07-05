@@ -8,7 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { OrderStatusBadge } from "@/components/shared/status-badge";
 import { Price } from "@/components/shared/star-rating";
 import { RestaurantCard } from "@/components/shared/restaurant-card";
-import { ArrowLeft, RotateCcw, ChevronRight, Receipt, Star } from "lucide-react";
+import { ArrowLeft, RotateCcw, ChevronRight, Receipt, Star, Package } from "lucide-react";
 import { timeAgo, dateLabel } from "@/lib/format";
 import { useRestaurants } from "@/hooks/use-data";
 import type { OrderStatus } from "@/lib/types";
@@ -43,7 +43,7 @@ export function Orders() {
                 {active.map((o) => (
                   <Card key={o.id} className="cursor-pointer p-3.5 shadow-soft transition hover:shadow-glow" onClick={() => { setActiveOrderId(o.id); setCustomerView("tracking"); }}>
                     <div className="flex items-center gap-3">
-                      <div className="grid h-12 w-12 place-items-center rounded-xl bg-secondary text-2xl">📦</div>
+                      <div className="grid h-12 w-12 place-items-center rounded-xl bg-secondary text-2xl"><Package size={24} className="text-muted-foreground" /></div>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center justify-between gap-2">
                           <p className="truncate font-display font-bold">{o.restaurant?.name}</p>

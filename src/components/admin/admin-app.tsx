@@ -12,6 +12,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import {
   LayoutDashboard, Receipt, Store, Bike, TrendingUp, Tag, DollarSign, Users, ShoppingBag,
   Activity, ArrowUpRight, Star, Plus, Settings, ShieldAlert, RefreshCw, AlertTriangle, CheckCircle2,
+  Flame, Check,
 } from "lucide-react";
 import { cop, copShort, timeAgo } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -123,7 +124,7 @@ function Overview() {
               <div key={r.id} className="flex items-center gap-3">
                 <span className="w-4 text-sm font-bold text-muted-foreground">{i+1}</span>
                 <img src={r.imageUrl} alt="" className="h-8 w-8 rounded-lg object-cover" />
-                <div className="flex-1"><p className="text-sm font-semibold">{r.name}</p><p className="text-[11px] text-muted-foreground">{r.cuisine} · ⭐{r.rating}</p></div>
+                <div className="flex-1"><p className="text-sm font-semibold">{r.name}</p><p className="text-[11px] text-muted-foreground">{r.cuisine} · <Star size={10} className="inline" style={{ color: "var(--mango)" }} fill="var(--mango)" />{r.rating}</p></div>
                 <span className="text-sm font-bold">{copShort(r.gmv)}</span>
               </div>
             ))}
@@ -175,7 +176,7 @@ function AuditCard() {
           <div>
             <p className="font-display text-sm font-bold">Rentabilidad de plataforma</p>
             <p className="text-[11px] text-muted-foreground">
-              {paused ? "⚠️ Bonos pausados — margen crítico" : "✓ Bonos activos — margen saludable"}
+              {paused ? <><AlertTriangle size={11} className="inline" /> Bonos pausados — margen crítico</> : <><CheckCircle2 size={11} className="inline" /> Bonos activos — margen saludable</>}
             </p>
           </div>
         </div>
@@ -285,12 +286,47 @@ function AllOrders() {
 function ManageRestaurants() {
   const { data, isLoading } = useAllRestaurants();
   const approve = useApprove();
+  const [showInvite, setShowInvite] = useState(false);
+
+  const handleSuspend = (id: string, name: string) => {
+    approve.mutate({ type: "restaurant", id, action: "suspend" });
+    toast.success(`${name} suspendido`);
+  };
+  const handleActivate = (id: string, name: string) => {
+    approve.mutate({ type: "restaurant", id, action: "approve" });
+    toast.success(`${name} activado`);
+  };
+  const handleDelete = (id: string, name: string) => {
+    approve.mutate({ type: "restaurant", id, action: "delete" });
+    toast.success(`${name} eliminado`);
+  };
+
+  const inviteLink = typeof window !== "undefined" ? `${window.location.origin}/?register=restaurante` : "";
+
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <h1 className="font-display text-2xl font-extrabold tracking-tight">Restaurantes</h1>
-        <Button size="sm" className="rounded-full" style={{ background: "var(--antojo)", color: "white" }} onClick={() => toast("Invitar restaurante")}><Plus size={14} /> Invitar</Button>
+        <Button size="sm" className="rounded-full gap-1" style={{ background: "var(--antojo)", color: "white" }} onClick={() => setShowInvite(!showInvite)}>
+          <Plus size={14} /> Invitar
+        </Button>
       </div>
+
+      {/* Modal invitar restaurante */}
+      {showInvite && (
+        <Card className="p-4 shadow-soft">
+          <h3 className="mb-2 flex items-center gap-1.5 font-display font-bold"><Plus size={16} style={{ color: "var(--antojo)" }} /> Invitar restaurante</h3>
+          <p className="mb-3 text-sm text-muted-foreground">Comparte este link con el restaurante para que se registre:</p>
+          <div className="flex gap-2">
+            <input readOnly value={inviteLink} className="h-10 flex-1 rounded-xl border border-border/60 bg-secondary/40 px-3 text-sm outline-none" />
+            <Button size="sm" variant="outline" className="rounded-xl gap-1" onClick={() => { navigator.clipboard?.writeText(inviteLink); toast.success("Link copiado 📋"); }}>
+              <Plus size={14} /> Copiar
+            </Button>
+          </div>
+          <p className="mt-2 text-[11px] text-muted-foreground">El restaurante deberá crear su cuenta con rol "Restaurante" y completar su perfil.</p>
+        </Card>
+      )}
+
       <div className="space-y-2">
         {(data?.restaurants ?? []).map(r => (
           <Card key={r.id} className="flex items-center gap-3 p-3 shadow-soft">
@@ -301,13 +337,15 @@ function ManageRestaurants() {
             </div>
             <div className="flex items-center gap-1 text-xs"><Star size={12} style={{ color: "var(--mango)" }} fill="var(--mango)" />{r.rating}</div>
             <Badge className={r.isOpen ? "bg-lima/15" : "bg-muted"} style={r.isOpen ? { color: "var(--lima)" } : { color: "var(--muted-foreground)" }}>{r.isOpen ? "Abierto" : "Cerrado"}</Badge>
-            {r.promo && <Badge className="bg-mango/15" style={{ color: "var(--mango)" }}>🔥</Badge>}
+            {r.promo && <Badge className="bg-mango/15" style={{ color: "var(--mango)" }}><Flame size={11} /></Badge>}
             <DropdownMenu>
               <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><Settings size={14} /></Button></DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => toast(`Suspendiendo ${r.name}…`)}>Suspender</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => approve.mutate({ type: "restaurant", id: r.id, approve: !r.isOpen })}>{r.isOpen ? "Cerrar" : "Activar"}</DropdownMenuItem>
-                <DropdownMenuItem className="text-destructive" onClick={() => toast("Restaurante eliminado")}>Eliminar</DropdownMenuItem>
+                {r.isOpen
+                  ? <DropdownMenuItem onClick={() => handleSuspend(r.id, r.name)}>Suspender</DropdownMenuItem>
+                  : <DropdownMenuItem onClick={() => handleActivate(r.id, r.name)}>Activar</DropdownMenuItem>
+                }
+                <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(r.id, r.name)}>Eliminar</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </Card>
@@ -320,6 +358,16 @@ function ManageRestaurants() {
 function ManageDrivers() {
   const { data, isLoading } = useAdminDrivers();
   const approve = useApprove();
+
+  const handleSuspend = (id: string, name: string) => {
+    approve.mutate({ type: "driver", id, action: "suspend" });
+    toast.success(`${name} suspendido`);
+  };
+  const handleDelete = (id: string, name: string) => {
+    approve.mutate({ type: "driver", id, action: "delete" });
+    toast.success(`${name} eliminado`);
+  };
+
   return (
     <div className="space-y-3">
       <h1 className="font-display text-2xl font-extrabold tracking-tight">Domiciliarios</h1>
@@ -332,10 +380,10 @@ function ManageDrivers() {
             </div>
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-semibold">{d.name}</p>
-              <p className="truncate text-xs text-muted-foreground">🏍️ {d.vehicle} · {d.totalDeliveries} entregas · ⭐{d.rating}</p>
+              <p className="truncate text-xs text-muted-foreground"><Bike size={11} className="inline" /> {d.vehicle} · {d.totalDeliveries} entregas · <Star size={10} className="inline" style={{ color: "var(--mango)" }} fill="var(--mango)" />{d.rating}</p>
             </div>
             {d.isVerified ? (
-              <Badge className="bg-lima/15" style={{ color: "var(--lima)" }}>✓ Verificado</Badge>
+              <Badge className="bg-lima/15" style={{ color: "var(--lima)" }}><Check size={10} className="inline" /> Verificado</Badge>
             ) : (
               <Badge className="bg-amber-500/15 text-amber-600">Pendiente</Badge>
             )}
@@ -346,9 +394,9 @@ function ManageDrivers() {
             <DropdownMenu>
               <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><Settings size={14} /></Button></DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                {!d.isVerified && <DropdownMenuItem onClick={() => approve.mutate({ type: "driver", id: d.id, approve: true })}>✓ Aprobar verificación</DropdownMenuItem>}
-                <DropdownMenuItem onClick={() => toast("Domiciliario suspendido")}>Suspender</DropdownMenuItem>
-                <DropdownMenuItem className="text-destructive" onClick={() => toast("Domiciliario eliminado")}>Eliminar</DropdownMenuItem>
+                {!d.isVerified && <DropdownMenuItem onClick={() => { approve.mutate({ type: "driver", id: d.id, action: "approve" }); toast.success(`${d.name} verificado`); }}><Check size={12} className="inline mr-1" /> Aprobar verificación</DropdownMenuItem>}
+                <DropdownMenuItem onClick={() => handleSuspend(d.id, d.name)}>Suspender</DropdownMenuItem>
+                <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(d.id, d.name)}>Eliminar</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </Card>
@@ -381,7 +429,7 @@ function ManageUsers() {
                 <p className="truncate text-xs text-muted-foreground">{u.email} · {u.provider} · {u.city}</p>
               </div>
               <Badge style={{ background: roleColor[u.role], color: "white" }}>{roleLabel[u.role]}</Badge>
-              {u.verified && <Badge className="bg-lima/15" style={{ color: "var(--lima)" }}>✓</Badge>}
+              {u.verified && <Badge className="bg-lima/15" style={{ color: "var(--lima)" }}><Check size={10} /></Badge>}
               <span className="text-[10px] text-muted-foreground">{timeAgo(u.createdAt)}</span>
             </Card>
           ))}

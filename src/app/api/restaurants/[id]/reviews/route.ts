@@ -12,7 +12,10 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   return NextResponse.json({
     reviews: reviews.map((r) => ({
       id: r.id, rating: r.rating, comment: r.comment, foodRating: r.foodRating, deliveryRating: r.deliveryRating,
+      photoUrl: r.photoUrl,
       at: r.at.toISOString(), customerName: r.customer?.name ?? "Cliente", avatarColor: r.customer?.avatarColor ?? "antojo",
+      restaurantReply: r.restaurantReply,
+      restaurantReplyAt: r.restaurantReplyAt?.toISOString() ?? null,
     })),
   });
 }

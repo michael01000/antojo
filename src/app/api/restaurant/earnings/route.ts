@@ -30,10 +30,13 @@ export async function GET() {
   const start7dAgo = new Date(); start7dAgo.setDate(start7dAgo.getDate() - 6); start7dAgo.setHours(0, 0, 0, 0);
 
   // ─── Query 1: groupBy por día (7 días) — una sola consulta ───
+  // Estados que generan ingreso (el cliente ya pagó aunque no se haya entregado)
+  const REVENUE_STATUSES = ["delivered", "en_route", "picked_up", "ready", "preparing", "accepted", "placed"];
+
   // Prisma groupBy agrega en la DB, evitando N+1.
   const dailyAgg = await db.order.groupBy({
     by: ["status"],
-    where: { restaurantId: restaurant.id, createdAt: { gte: start7dAgo }, status: "delivered" },
+    where: { restaurantId: restaurant.id, createdAt: { gte: start7dAgo }, status: { in: REVENUE_STATUSES } },
     _sum: { subtotal: true, total: true },
     _count: true,
   });
@@ -41,8 +44,8 @@ export async function GET() {
   // Como groupBy de Prisma no soporta agrupar por fecha directamente en Postgres
   // de forma portable, traemos las órdenes de 7 días y agregamos en JS (máx ~100-500 órdenes).
   const orders7d = await db.order.findMany({
-    where: { restaurantId: restaurant.id, createdAt: { gte: start7dAgo }, status: "delivered" },
-    select: { subtotal: true, total: true, createdAt: true, code: true, paymentMethod: true },
+    where: { restaurantId: restaurant.id, createdAt: { gte: start7dAgo }, status: { in: REVENUE_STATUSES } },
+    select: { subtotal: true, total: true, createdAt: true, code: true, paymentMethod: true, discount: true },
     orderBy: { createdAt: "desc" },
     take: 500,
   });

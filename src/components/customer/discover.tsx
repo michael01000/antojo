@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useApp } from "@/lib/store";
-import { useCategories, useRestaurants, useRecommendations, usePopular, useCustomer, useStories, useCreateGroupOrder, useToggleFollow, useFollows } from "@/hooks/use-data";
+import { useCategories, useRestaurants, useRecommendations, usePopular, useCustomer, useStories, useCreateGroupOrder, useToggleFollow, useFollows, useSmartReorder, useDailyMission, useChefDrops, useCompleteMission } from "@/hooks/use-data";
 import { RestaurantCard, RestaurantCardSkeleton } from "@/components/shared/restaurant-card";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,7 @@ import { cop } from "@/lib/format";
 import { Price } from "@/components/shared/star-rating";
 import {
   Flame, Sparkles, Clock, Crown, Users, ChevronRight, Wand2, TrendingUp,
-  UtensilsCrossed, Search,
+  UtensilsCrossed, Search, Star, X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
@@ -32,8 +32,13 @@ export function Discover() {
   const { data: popular } = usePopular();
   const { data: profile } = useCustomer();
   const { data: storiesData } = useStories();
+  const { data: reorderSuggestion } = useSmartReorder();
+  const { data: missionData } = useDailyMission();
+  const { data: dropsData } = useChefDrops();
+  const completeMission = useCompleteMission();
   const createGroupOrder = useCreateGroupOrder();
   const setActiveGroupOrderCode = useApp((s) => s.setActiveGroupOrderCode);
+  const addToCart = useApp((s) => s.addToCart);
 
   // Compute the time-based greeting only after mount so SSR and the first
   // client paint render the same stable text (avoids hydration mismatch).
@@ -54,7 +59,7 @@ export function Discover() {
     <div className="space-y-6 px-3 pt-4 sm:px-5 lg:px-0">
       {/* ---------- Greeting ---------- */}
       <section className="space-y-1">
-        <p className="text-sm text-muted-foreground">{greetingText}, Valentina 👋</p>
+        <p className="text-sm text-muted-foreground">{greetingText}, Valentina</p>
         <h1 className="font-display text-2xl font-extrabold tracking-tight sm:text-3xl">
           ¿Qué se te antoja <span className="text-gradient-antojo">hoy</span>?
         </h1>
@@ -86,6 +91,79 @@ export function Discover() {
         <QuickAction icon={Flame} label="Ofertas flash" desc="Termina en 2h" color="antojo" onClick={() => document.getElementById("ofertas")?.scrollIntoView({ behavior: "smooth" })} />
         <QuickAction icon={Sparkles} label="Sazón AI" desc="¿Qué pido?" color="lima" onClick={() => setCustomerView("assistant")} />
       </section>
+
+      {/* ---------- Smart Reorder (banner predictivo) ---------- */}
+      {reorderSuggestion?.suggestion && (
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="overflow-hidden rounded-2xl border border-border/60 bg-card shadow-soft">
+          <div className="flex items-center gap-3 p-3">
+            <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-secondary text-xl">{reorderSuggestion.suggestion.items[0]?.emoji ?? "🍽️"}</div>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-semibold" style={{ color: "var(--lima)" }}>¿Otra vez lo mismo?</p>
+              <p className="truncate text-sm font-bold">{reorderSuggestion.suggestion.restaurant.name}</p>
+              <p className="truncate text-[11px] text-muted-foreground">{reorderSuggestion.suggestion.items.map((i: any) => `${i.qty}× ${i.name}`).join(", ")}</p>
+            </div>
+            <Button size="sm" className="rounded-full shrink-0" style={{ background: "var(--antojo)", color: "white" }} onClick={() => {
+              reorderSuggestion.suggestion.items.forEach((i: any) => addToCart({ menuItemId: i.id ?? Math.random().toString(), name: i.name, emoji: i.emoji, price: i.price, qty: i.qty, restaurantId: reorderSuggestion.suggestion.restaurant.id, restaurantName: reorderSuggestion.suggestion.restaurant.name }));
+              toast.success("Pedido repetido añadido al carrito 🔄");
+              setCustomerView("checkout");
+            }}>
+              <Clock size={13} className="inline" /> Repetir
+            </Button>
+          </div>
+        </motion.div>
+      )}
+
+      {/* ---------- Misión Diaria ---------- */}
+      {missionData?.mission && (
+        <Card className={cn("flex items-center gap-3 p-3 shadow-soft", missionData.mission.completed && "opacity-60")}>
+          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-secondary text-xl">{missionData.mission.icon}</div>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-bold">{missionData.mission.title}</p>
+            <p className="text-[11px] text-muted-foreground">{missionData.mission.description}</p>
+          </div>
+          {missionData.mission.completed ? (
+            <Badge className="bg-lima/15" style={{ color: "var(--lima)" }}>✓ Completada</Badge>
+          ) : (
+            <Button size="sm" variant="outline" className="rounded-full shrink-0" onClick={async () => { await completeMission.mutateAsync(); toast.success(`+${missionData.mission.reward} coins! 🎉`); }}>
+              +{missionData.mission.reward} coins
+            </Button>
+          )}
+        </Card>
+      )}
+
+      {/* ---------- Chef's Drops (edición limitada) ---------- */}
+      {dropsData?.drops?.length > 0 && (
+        <section>
+          <div className="mb-2.5 flex items-end justify-between gap-2">
+            <div>
+              <h2 className="flex items-center gap-1.5 font-display text-lg font-extrabold tracking-tight sm:text-xl">
+                <Flame size={18} style={{ color: "var(--antojo)" }} /> Chef's Drops
+              </h2>
+              <p className="text-xs text-muted-foreground">Edición limitada — solo por 24h</p>
+            </div>
+          </div>
+          <div className="no-scrollbar -mx-3 flex gap-3 overflow-x-auto px-3 pb-1 sm:mx-0 sm:px-0">
+            {dropsData.drops.map((drop: any) => {
+              const remaining = drop.remaining;
+              const pct = drop.stock > 0 ? (remaining / drop.stock) * 100 : 0;
+              return (
+                <button key={drop.id} onClick={() => setSelectedRestaurant(drop.restaurant.id)} className="w-44 shrink-0 overflow-hidden rounded-2xl border border-border/60 bg-card text-left shadow-soft transition-all hover:-translate-y-0.5 hover:shadow-glow">
+                  <div className="relative grid h-24 place-items-center bg-secondary text-4xl">{drop.emoji}</div>
+                  <div className="space-y-1 p-2.5">
+                    <h4 className="truncate font-display text-sm font-bold">{drop.name}</h4>
+                    <p className="truncate text-[11px] text-muted-foreground">{drop.restaurant.name}</p>
+                    <div className="flex items-center justify-between">
+                      <Price value={drop.price} className="text-sm font-bold" />
+                      <span className="text-[10px] font-bold" style={{ color: remaining < 10 ? "var(--antojo)" : "var(--muted-foreground)" }}>{remaining} left</span>
+                    </div>
+                    <div className="h-1 overflow-hidden rounded-full bg-secondary"><div className="h-full rounded-full" style={{ width: `${pct}%`, background: remaining < 10 ? "var(--antojo)" : "var(--lima)" }} /></div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       {/* ---------- Stories bar ---------- */}
       {storiesData?.groups?.length > 0 && (
@@ -167,7 +245,7 @@ export function Discover() {
                     <h4 className="truncate font-display text-sm font-bold">{r.name}</h4>
                     <p className="truncate text-xs text-muted-foreground">{rec.reason}</p>
                     <div className="mt-0.5 flex items-center gap-2 text-[11px] text-muted-foreground">
-                      <span>⭐ {r.rating}</span><span>·</span><span><Clock size={10} className="inline" /> {r.deliveryMin} min</span>
+                      <span><Star size={11} className="inline" style={{ color: "var(--mango)" }} fill="var(--mango)" /> {r.rating}</span><span>·</span><span><Clock size={10} className="inline" /> {r.deliveryMin} min</span>
                     </div>
                   </div>
                 </motion.button>
@@ -243,7 +321,7 @@ export function Discover() {
           <div className="flex gap-1.5">
             {activeCategory !== "Todas" && (
               <button onClick={() => setActiveCategory("Todas")} className="flex items-center gap-1 rounded-full border border-border/60 bg-card px-3 py-1.5 text-xs font-semibold">
-                ✕ Quitar filtro
+                <X size={12} className="inline mr-1" /> Quitar filtro
               </button>
             )}
             <select value={activeSort} onChange={(e) => setActiveSort(e.target.value)} className="rounded-full border border-border/60 bg-card px-3 py-1.5 text-xs font-semibold outline-none">

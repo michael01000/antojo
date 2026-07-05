@@ -8,7 +8,7 @@ import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { TIER_INFO } from "@/lib/types";
-import { Crown, Flame, TrendingUp, Gift, Sparkles, Check, Copy, Ticket } from "lucide-react";
+import { Crown, Flame, TrendingUp, Gift, Sparkles, Check, Copy, Ticket, Bike, Banknote } from "lucide-react";
 import { cop } from "@/lib/format";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -63,7 +63,7 @@ export function Rewards() {
             </div>
             <div className="text-right">
               <span className="inline-flex items-center gap-1 rounded-full bg-white/20 px-3 py-1 text-sm font-bold"><Crown size={14} /> {l.tier}</span>
-              <p className="mt-1 flex items-center gap-1 text-xs"><Flame size={12} /> Racha de {l.streakDays} días 🔥</p>
+              <p className="mt-1 flex items-center gap-1 text-xs"><Flame size={12} /> Racha de {l.streakDays} días <Flame size={12} className="inline" style={{ color: "var(--antojo)" }} /></p>
             </div>
           </div>
         </div>
@@ -78,7 +78,7 @@ export function Rewards() {
               <p className="mt-2 text-xs text-muted-foreground">Te faltan <b>{next[1].min - l.coins}</b> coins para subir a {next[0]}. Beneficio: {next[1].perk}</p>
             </>
           ) : (
-            <p className="text-sm font-semibold" style={{ color: "var(--mora)" }}>👑 ¡Estás en el tier máximo! Disfrutas de {TIER_INFO[l.tier].perk}</p>
+            <p className="text-sm font-semibold" style={{ color: "var(--mora)" }}><Crown size={14} className="inline" style={{ color: "var(--mora)" }} /> ¡Estás en el tier máximo! Disfrutas de {TIER_INFO[l.tier].perk}</p>
           )}
         </div>
       </Card>
@@ -137,7 +137,7 @@ export function Rewards() {
             {coupons.map((c: any) => (
               <Card key={c.id} className={cn("flex items-center gap-3 p-3 shadow-soft", c.used && "opacity-50")}>
                 <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-secondary text-xl">
-                  {c.type === "free_delivery" ? "🏍️" : c.type === "fixed" ? "💸" : "🎫"}
+                  {c.type === "free_delivery" ? <Bike size={18} /> : c.type === "fixed" ? <Banknote size={18} /> : <Ticket size={18} />}
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-semibold">{c.title}</p>

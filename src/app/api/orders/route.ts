@@ -26,7 +26,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   const c = await getCurrentCustomer();
   const body = await req.json();
-  const { items, restaurantId, address, paymentMethod, tip: clientTip, promoCode, notes, etaMin } = body;
+  const { items, restaurantId, address, paymentMethod, tip: clientTip, promoCode, notes, etaMin, scheduledFor, mood } = body;
 
   // ─── 1. Validar que hay items ───
   if (!items || !Array.isArray(items) || items.length === 0) {
@@ -126,6 +126,8 @@ export async function POST(req: NextRequest) {
       address,
       notes: notes || null,
       etaMin: etaMin || 30,
+      scheduledFor: scheduledFor ? new Date(scheduledFor) : null,
+      mood: mood || null,
       items: {
         create: items.map((it: any) => {
           const mi = menuItems.find((m) => m.id === it.menuItemId)!;

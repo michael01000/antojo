@@ -216,6 +216,28 @@ export function useToggleMenuItem() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["restaurant-menu"] }),
   });
 }
+export function useCreateMenuItem() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: any) => api.post<{ menuItem: any }>("/api/restaurant/menu", body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["restaurant-menu"] }),
+  });
+}
+export function useUpdateMenuItem() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...body }: { id: string } & any) =>
+      api.patch<{ menuItem: any }>(`/api/restaurant/menu/${id}`, body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["restaurant-menu"] }),
+  });
+}
+export function useDeleteMenuItem() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.del<{ ok: boolean }>(`/api/restaurant/menu/${id}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["restaurant-menu"] }),
+  });
+}
 
 export function useAllRestaurants() {
   return useQuery({ queryKey: ["all-restaurants"], queryFn: () => api.get<{ restaurants: any[] }>("/api/admin/restaurants") });
@@ -312,7 +334,8 @@ export function useAdminUsers() {
 export function useApprove() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (body: { type: "restaurant" | "driver"; id: string; approve: boolean }) => api.post<{ ok: boolean }>("/api/admin/approve", body),
+    mutationFn: (body: { type: "restaurant" | "driver"; id: string; action: "approve" | "suspend" | "delete" }) =>
+      api.post<{ ok: boolean }>("/api/admin/approve", body),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-restaurants"] });
       qc.invalidateQueries({ queryKey: ["admin-drivers"] });
@@ -363,6 +386,116 @@ export function useRedeemReward() {
 }
 export function useMyCoupons() {
   return useQuery({ queryKey: ["coupons"], queryFn: () => api.get<{ coupons: any[] }>("/api/rewards/coupons") });
+}
+
+// ---------- Smart Reorder ----------
+export function useSmartReorder() {
+  return useQuery({ queryKey: ["smart-reorder"], queryFn: () => api.get<{ suggestion: any }>("/api/smart-reorder"), staleTime: 60000 });
+}
+
+// ---------- Combo Builder AI ----------
+export function useComboBuilder() {
+  return useMutation({
+    mutationFn: ({ budget, people, preference }: { budget: number; people?: number; preference?: string }) =>
+      api.post<{ combo: any[]; total: number; reason: string; source: string }>("/api/ai/combo-builder", { budget, people, preference }),
+  });
+}
+
+// ---------- Wallet ----------
+export function useWallet() {
+  return useQuery({ queryKey: ["wallet"], queryFn: () => api.get<{ wallet: any }>("/api/wallet") });
+}
+export function useTopUpWallet() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (amount: number) => api.post<{ ok: boolean; newBalance: number; bonus: number }>("/api/wallet", { amount }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["wallet"] }),
+  });
+}
+
+// ---------- Split Payment ----------
+export function usePayShare() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ code, paymentMethod }: { code: string; paymentMethod: string }) =>
+      api.post<{ ok: boolean; myTotal: number; allPaid: boolean }>(`/api/group-orders/${code}/pay-share`, { paymentMethod }),
+    onSuccess: (_d, v) => qc.invalidateQueries({ queryKey: ["group-order", v.code] }),
+  });
+}
+
+// ---------- Chef's Drops ----------
+export function useChefDrops() {
+  return useQuery({ queryKey: ["chef-drops"], queryFn: () => api.get<{ drops: any[] }>("/api/chef-drops"), refetchInterval: 30000 });
+}
+
+// ---------- Missions ----------
+export function useDailyMission() {
+  return useQuery({ queryKey: ["mission"], queryFn: () => api.get<{ mission: any }>("/api/missions") });
+}
+export function useCompleteMission() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.patch<{ ok: boolean; reward: number }>("/api/missions"),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["mission"] }); qc.invalidateQueries({ queryKey: ["loyalty"] }); },
+  });
+}
+
+// ---------- Driver Leaderboard ----------
+export function useDriverLeaderboard() {
+  return useQuery({ queryKey: ["driver-leaderboard"], queryFn: () => api.get<any>("/api/driver/leaderboard") });
+}
+
+// ---------- Eco ----------
+export function useEcoStats() {
+  return useQuery({ queryKey: ["eco"], queryFn: () => api.get<{ eco: any }>("/api/eco") });
+}
+
+// ---------- Business ----------
+export function useBusinessAccount() {
+  return useQuery({ queryKey: ["business"], queryFn: () => api.get<{ business: any }>("/api/business") });
+}
+export function useRegisterBusiness() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: any) => api.post<{ business: any }>("/api/business/register", body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["business"] }),
+  });
+}
+
+// ---------- Fase 2: Referidos + Respuesta Reseñas ----------
+export function useReferrals() {
+  return useQuery({ queryKey: ["referrals"], queryFn: () => api.get<{ referral: any }>("/api/referrals") });
+}
+export function useApplyReferral() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (code: string) => api.post<{ ok: boolean; message: string }>("/api/referrals", { code }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["referrals"] }); qc.invalidateQueries({ queryKey: ["loyalty"] }); },
+  });
+}
+export function useReplyReview() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, reply }: { id: string; reply: string }) => api.patch<{ ok: boolean }>(`/api/reviews/${id}/reply`, { reply }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["reviews"] }),
+  });
+}
+
+// ---------- Fase 3: Filtros nutricionales + Propina post-entrega ----------
+export function usePostDeliveryTip() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ orderId, amount }: { orderId: string; amount: number }) =>
+      api.patch<{ ok: boolean }>(`/api/orders/${orderId}`, { tipPostDelivery: amount }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["my-orders"] }),
+  });
+}
+
+// ---------- Fase 4: Mood Ordering ----------
+export function useMoodRecommendations() {
+  return useMutation({
+    mutationFn: (mood: string) => api.post<{ recommendations: any[] }>("/api/ai/mood", { mood }),
+  });
 }
 
 // ---------- Social: Posts ----------

@@ -10,7 +10,7 @@ import { LiveMap } from "@/components/shared/live-map";
 import { OrderStatusBadge, StatusIcon } from "@/components/shared/status-badge";
 import { Price } from "@/components/shared/star-rating";
 import { ORDER_STATUS_FLOW, STATUS_INDEX, type OrderStatus } from "@/lib/types";
-import { ArrowLeft, Phone, MessageCircle, Send, Check, Star, Share2, Users, Sparkles, ChevronRight } from "lucide-react";
+import { ArrowLeft, Phone, MessageCircle, Send, Check, Star, Share2, Users, Sparkles, ChevronRight, Bike } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useSocket } from "@/components/providers";
@@ -136,7 +136,7 @@ export function Tracking() {
                 </div>
                 <div className="flex-1">
                   <p className="font-display font-bold">{o.driver.name}</p>
-                  <p className="text-xs text-muted-foreground">🏍️ {o.driver.vehicle} · ⭐ {o.driver.rating}</p>
+                  <p className="text-xs text-muted-foreground"><Bike size={11} className="inline" /> {o.driver.vehicle} · <Star size={11} className="inline" style={{ color: "var(--mango)" }} fill="var(--mango)" /> {o.driver.rating}</p>
                 </div>
                 <a href={`tel:+573105551234`}><Button size="icon" className="rounded-full" style={{ background: "var(--lima)", color: "white" }}><Phone size={16} /></Button></a>
               </div>
@@ -214,7 +214,7 @@ function RateCard({ orderId }: { orderId: string }) {
       <Card className="p-5 text-center shadow-soft">
         <div className="mx-auto grid h-12 w-12 place-items-center rounded-full" style={{ background: "oklch(0.72 0.17 145 / 0.15)" }}><Check size={24} style={{ color: "var(--lima)" }} /></div>
         <h3 className="mt-2 font-display font-bold">¡Gracias por calificar!</h3>
-        <p className="text-sm text-muted-foreground">Ganaste 50 coins extra ⭐</p>
+        <p className="text-sm text-muted-foreground">Ganaste 50 coins extra <Star size={12} className="inline" style={{ color: "var(--mango)" }} /></p>
         <Button className="mt-3 rounded-full" style={{ background: "var(--antojo)", color: "white" }} onClick={() => setCustomerView("discover")}>Volver a pedir</Button>
       </Card>
     );

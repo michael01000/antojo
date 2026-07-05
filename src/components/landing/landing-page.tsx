@@ -29,7 +29,7 @@ import { motion } from "framer-motion";
 import {
   ArrowRight, Sparkles, Zap, Bike, MapPin, Clock, Star, Crown, ShieldCheck,
   UtensilsCrossed, Store, ShoppingBag, Wallet, TrendingUp, Heart, Gift,
-  ChevronRight, Apple, Play, Check, Quote,
+  ChevronRight, Apple, Play, Check, Quote, Flame,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -123,7 +123,7 @@ export function LandingPage() {
                   <img src={FOOD_IMAGES.burger} alt="Hamburguesa" className="h-full w-full object-cover" />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
                   <div className="absolute bottom-4 left-4 right-4 text-white">
-                    <span className="rounded-full bg-mango px-2.5 py-1 text-[11px] font-bold" style={{ background: "var(--mango)", color: "var(--cafe)" }}>🔥 2x1 en clásicas</span>
+                    <span className="rounded-full bg-mango px-2.5 py-1 text-[11px] font-bold" style={{ background: "var(--mango)", color: "var(--cafe)" }}><Flame size={11} className="inline" /> 2x1 en clásicas</span>
                     <h3 className="mt-2 font-display text-xl font-extrabold">El Corral Gourmet</h3>
                     <div className="mt-1 flex items-center gap-3 text-sm">
                       <span className="flex items-center gap-1"><Star size={13} fill="var(--mango)" style={{ color: "var(--mango)" }} /> 4.8</span>
@@ -153,7 +153,7 @@ export function LandingPage() {
               <motion.div animate={{ y: [0, 8, 0] }} transition={{ duration: 5, repeat: Infinity, ease: "easeInOut", delay: 0.5 }}
                 className="absolute -right-4 bottom-8 w-40 rounded-2xl border border-border/60 bg-card p-3 shadow-glow sm:-right-6">
                 <div className="flex items-center gap-2">
-                  <span className="text-xl">🎁</span>
+                  <Gift size={20} style={{ color: "var(--mango)" }} />
                   <div>
                     <p className="text-[11px] text-muted-foreground">Antojo Coins</p>
                     <p className="font-display text-lg font-extrabold" style={{ color: "var(--mango)" }}>1.240</p>
@@ -182,7 +182,7 @@ export function LandingPage() {
             { value: "+50.000", label: "Pedidos entregados", icon: ShoppingBag, color: "var(--antojo)" },
             { value: "+200", label: "Restaurantes aliados", icon: Store, color: "var(--mora)" },
             { value: "25 min", label: "Entrega promedio", icon: Zap, color: "var(--lima)" },
-            { value: "4.9★", label: "Calificación usuarios", icon: Star, color: "var(--mango)" },
+            { value: "4.9", label: "Calificación usuarios", icon: Star, color: "var(--mango)" },
           ].map((s, i) => {
             const Icon = s.icon;
             return (
